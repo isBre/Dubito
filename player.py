@@ -1,32 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict
 import random
-from collections import Counter
 from hand import Hand
+
 
 class Player(ABC):
     """
-    Abstract base class representing a player in a card game.
-
-    Attributes:
-        cards (Hand): The player's hand of cards.
-        id (int): The unique identifier for the player.
-        game_position (int): The position of the player in the game.
-
-    Methods:
-        play(turn_infos: Dict) -> Dict:
-            Abstract method representing the player's move during their turn.
-            Must be implemented by subclasses.
-        add_cards(new_cards: List):
-            Adds new cards to the player's hand.
-        discard_cards() -> List[int]:
-            Discards cards from the player's hand.
-        has_no_cards() -> bool:
-            Checks if the player has no cards left in their hand.
-        n_cards() -> int:
-            Returns the number of cards in the player's hand.
-        reset():
-            Resets the player's hand.
+    Abstract base class representing a player in a game.
     """
 
     def __init__(self, id: int) -> None:
@@ -97,7 +77,10 @@ class Player(ABC):
         
     def all_equal(self) -> bool:
         """
-        Check if the player contain the same cards
+        Check if all cards in the player's hand are the same.
+
+        Returns:
+            bool: True if all cards in the hand are the same, False otherwise.
         """
         return self.cards.all_equal()
 
@@ -108,28 +91,90 @@ class PlayerAI(Player):
     Base class for AI player behavior.
     """
     def __init__(self, id: int) -> None:
+        """
+        Initializes an AI player with an ID and sets the uncertainty value.
+
+        Args:
+            id (int): The unique identifier for the AI player.
+        """
         self.uncertainty_value = 0.05
         super().__init__(id)
         
-    def can_play_truthfully(self, input_player: Dict) -> Dict:
+    def can_play_truthfully(self, input_player: Dict) -> bool:
+        """
+        Checks if the AI player can play truthfully based on the current game state.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Returns:
+            bool: True if the AI player can play truthfully, False otherwise.
+        """
         return self.cards.has(input_player['current_number'])
     
-    def is_first_turn(self, input_player : Dict) -> bool:
+    def is_first_turn(self, input_player: Dict) -> bool:
+        """
+        Checks if it's the first turn of the game.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Returns:
+            bool: True if it's the first turn, False otherwise.
+        """
         return input_player['board_cards'] == 0
     
-    def prev_player_started_turn(self, input_player : Dict) -> bool:
+    def prev_player_started_turn(self, input_player: Dict) -> bool:
+        """
+        Checks if the previous player started the current turn.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Returns:
+            bool: True if the previous player started the turn, False otherwise.
+        """
         return input_player['n_cards_played'] == input_player['board_cards']
 
     def play(self, input_player: Dict) -> Dict:
+        """
+        Main method to determine the AI player's move during its turn.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Returns:
+            Dict: Information about the AI player's move.
+        """
         if self.is_first_turn(input_player):
             return self.play_first_turn(input_player)
         else:
             return self.play_regular_turn(input_player)
 
     def play_first_turn(self, input_player: Dict) -> Dict:
+        """
+        Abstract method representing the AI player's move on the first turn.
+        Must be implemented by subclasses.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Raises:
+            NotImplementedError: If the method is not implemented by the subclass.
+        """
         raise NotImplementedError("Subclasses must implement play_first_turn method.")
 
     def play_regular_turn(self, input_player: Dict) -> Dict:
+        """
+        Abstract method representing the AI player's move on regular turns.
+        Must be implemented by subclasses.
+
+        Args:
+            input_player (Dict): Information provided to the AI about the game state.
+
+        Raises:
+            NotImplementedError: If the method is not implemented by the subclass.
+        """
         raise NotImplementedError("Subclasses must implement play_regular_turn method.")
 
     def doubt(self, input_player: Dict, uncertainty : bool) -> Dict:
