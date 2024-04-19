@@ -212,3 +212,104 @@ Aggressive when the streak is low otherwise Honest. Calculates the risk value co
 - If prev_player was not playing first turn then check the number of cards of prev_player
   - if prev_player has played 3 cards doubt,
   - otherwise then with 50% probability be honest or doubt 
+
+
+# Result
+
+The overall results are depicted on this plot.
+
+![Winrate](graphs/win_rate_bar_graph.png)
+
+We can also examine the remaining cards per game:
+
+![Remaining Cards](graphs/avg_cards_bar_graph.png)
+
+## Individual Results
+
+Here, instead, we can observe the individual performance of each bot.
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/RandomBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>RandomBoi</b></p>
+    </div>
+</div>
+
+![RandomBoi](graphs/RandomBoi_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/AlwaysTruthful.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>AlwaysTruthful</b></p>
+    </div>
+</div>
+
+![AlwaysTruthful](graphs/AlwaysTruthful_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/MrNoDoubt.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>MrNoDoubt</b></p>
+    </div>
+</div>
+
+![MrNoDoubt](graphs/MrNoDoubt_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/JustPutCards.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>JustPutCards</b></p>
+    </div>
+</div>
+
+![JustPutCards](graphs/JustPutCards_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/AdaptyBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>AdaptyBoi</b></p>
+    </div>
+</div>
+
+![AdaptyBoi](graphs/AdaptyBoi_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/SusBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>SusBoi</b></p>
+    </div>
+</div>
+
+![SusBoi](graphs/SusBoi_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/UsualBot.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>UsualBot</b></p>
+    </div>
+</div>
+
+![UsualBot](graphs/UsualBot_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/RiskCounter.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>RiskCounter</b></p>
+    </div>
+</div>
+
+![RiskCounter](graphs/RiskCounter_win_rate_comparison.png)
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <img src="imgs/StefaBot.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>StefaBot</b></p>
+    </div>
+</div>
+
+![StefaBot](graphs/StefaBot_win_rate_comparison.png)
+
+# Final Conclusion
+- The game heavily depends on the chosen **position** at the beginning of the match and consequently on the players preceding and succeeding you. 
+- As evident from the win rate graphs of each bot, there are delineations between "**aggressive**" bots (with a tendency to bluff) and "**passive**" bots (inclined to play honestly: doubting and playing cards associated with the correct number). Typically, aggressive bots exhibit greater variance in win rate concerning succeeding players, while passive bots show more variance concerning preceding players. Aggressive players need to pay closer attention to succeeding players, while passive ones focus on preceding players. 
+- At present, the best algorithm appears to be **AdaptyBoi**, which strikes a good balance between aggressive and passive playstyles. Hence, identifying the strategies of the players around you is crucial and adapting accordingly. Unfortunately, there isn't a method capable of decisively winning against all types of opponents, considering the game's reliance on luck.

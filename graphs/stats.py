@@ -66,7 +66,6 @@ for player in players:
             prev_win_rates[prev_player] = total_wins / total_games
     plt.subplot(1, 2, 1)
     bars = plt.bar(prev_win_rates.keys(), prev_win_rates.values())
-    plt.xlabel('Players')
     plt.ylabel('Win Rate')
     plt.title(f'Win Rate of {player} compared to players positioned prev')
     plt.xticks(rotation=45)
@@ -85,8 +84,6 @@ for player in players:
             next_win_rates[next_player] = total_wins / total_games
     plt.subplot(1, 2, 2)
     bars = plt.bar(next_win_rates.keys(), next_win_rates.values())
-    plt.xlabel('Players')
-    plt.ylabel('Win Rate')
     plt.title(f'Win Rate of {player} compared to players positioned next')
     plt.xticks(rotation=45)
     plt.ylim(0, 1)  # Setting y-axis limit

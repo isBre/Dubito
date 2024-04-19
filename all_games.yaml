@@ -1,9 +1,9 @@
-AdptyBoi:
+AdaptyBoi:
   losses:
     avg_cards: 7.529530705649293
     games: 365975
     next:
-      AdptyBoi: 38529
+      AdaptyBoi: 38529
       AlwaysTruthful: 38591
       JustPutCards: 23760
       MrDoubt: 45096
@@ -14,7 +14,7 @@ AdptyBoi:
       SusBoi: 43047
       UsualBot: 38011
     prev:
-      AdptyBoi: 40033
+      AdaptyBoi: 40033
       AlwaysTruthful: 39924
       JustPutCards: 27891
       MrDoubt: 29649
@@ -28,7 +28,7 @@ AdptyBoi:
     avg_cards: 5.502688821571279
     games: 500777
     next:
-      AdptyBoi: 49912
+      AdaptyBoi: 49912
       AlwaysTruthful: 50154
       JustPutCards: 50000
       MrDoubt: 50120
@@ -39,7 +39,7 @@ AdptyBoi:
       SusBoi: 49874
       UsualBot: 49911
     prev:
-      AdptyBoi: 49912
+      AdaptyBoi: 49912
       AlwaysTruthful: 50436
       JustPutCards: 49971
       MrDoubt: 49797
@@ -53,7 +53,7 @@ AdptyBoi:
     avg_cards: 0.0
     games: 134802
     next:
-      AdptyBoi: 11383
+      AdaptyBoi: 11383
       AlwaysTruthful: 11563
       JustPutCards: 26240
       MrDoubt: 5024
@@ -64,7 +64,7 @@ AdptyBoi:
       SusBoi: 6827
       UsualBot: 11900
     prev:
-      AdptyBoi: 9879
+      AdaptyBoi: 9879
       AlwaysTruthful: 10512
       JustPutCards: 22080
       MrDoubt: 20148
@@ -79,7 +79,7 @@ AlwaysTruthful:
     avg_cards: 6.432785538610482
     games: 409034
     next:
-      AdptyBoi: 40487
+      AdaptyBoi: 40487
       AlwaysTruthful: 37397
       JustPutCards: 44398
       MrDoubt: 44934
@@ -90,7 +90,7 @@ AlwaysTruthful:
       SusBoi: 40619
       UsualBot: 42107
     prev:
-      AdptyBoi: 42578
+      AdaptyBoi: 42578
       AlwaysTruthful: 48378
       JustPutCards: 34481
       MrDoubt: 32874
@@ -104,7 +104,7 @@ AlwaysTruthful:
     avg_cards: 5.2511869527992925
     games: 501073
     next:
-      AdptyBoi: 50436
+      AdaptyBoi: 50436
       AlwaysTruthful: 50334
       JustPutCards: 50107
       MrDoubt: 49801
@@ -115,7 +115,7 @@ AlwaysTruthful:
       SusBoi: 50205
       UsualBot: 49882
     prev:
-      AdptyBoi: 50154
+      AdaptyBoi: 50154
       AlwaysTruthful: 50334
       JustPutCards: 49964
       MrDoubt: 49930
@@ -129,7 +129,7 @@ AlwaysTruthful:
     avg_cards: 0.0
     games: 92039
     next:
-      AdptyBoi: 9949
+      AdaptyBoi: 9949
       AlwaysTruthful: 12937
       JustPutCards: 5709
       MrDoubt: 4867
@@ -140,7 +140,7 @@ AlwaysTruthful:
       SusBoi: 9586
       UsualBot: 7775
     prev:
-      AdptyBoi: 7576
+      AdaptyBoi: 7576
       AlwaysTruthful: 1956
       JustPutCards: 15483
       MrDoubt: 17056
@@ -155,7 +155,7 @@ JustPutCards:
     avg_cards: 11.723106013173382
     games: 399290
     next:
-      AdptyBoi: 47963
+      AdaptyBoi: 47963
       AlwaysTruthful: 45442
       JustPutCards: 16325
       MrDoubt: 49659
@@ -166,7 +166,7 @@ JustPutCards:
       SusBoi: 49735
       UsualBot: 46073
     prev:
-      AdptyBoi: 42060
+      AdaptyBoi: 42060
       AlwaysTruthful: 37543
       JustPutCards: 46329
       MrDoubt: 36050
@@ -180,7 +180,7 @@ JustPutCards:
     avg_cards: 9.38419114330335
     games: 498809
     next:
-      AdptyBoi: 49971
+      AdaptyBoi: 49971
       AlwaysTruthful: 49964
       JustPutCards: 49915
       MrDoubt: 49671
@@ -191,7 +191,7 @@ JustPutCards:
       SusBoi: 49750
       UsualBot: 49525
     prev:
-      AdptyBoi: 50000
+      AdaptyBoi: 50000
       AlwaysTruthful: 50107
       JustPutCards: 49915
       MrDoubt: 50187
@@ -205,7 +205,7 @@ JustPutCards:
     avg_cards: 0.0
     games: 99519
     next:
-      AdptyBoi: 2008
+      AdaptyBoi: 2008
       AlwaysTruthful: 4522
       JustPutCards: 33590
       MrDoubt: 12
@@ -216,7 +216,7 @@ JustPutCards:
       SusBoi: 15
       UsualBot: 3452
     prev:
-      AdptyBoi: 7940
+      AdaptyBoi: 7940
       AlwaysTruthful: 12564
       JustPutCards: 3586
       MrDoubt: 14137
@@ -231,7 +231,7 @@ MrDoubt:
     avg_cards: 9.669071788505075
     games: 410790
     next:
-      AdptyBoi: 40513
+      AdaptyBoi: 40513
       AlwaysTruthful: 39928
       JustPutCards: 38013
       MrDoubt: 48164
@@ -242,7 +242,7 @@ MrDoubt:
       SusBoi: 46648
       UsualBot: 35704
     prev:
-      AdptyBoi: 47556
+      AdaptyBoi: 47556
       AlwaysTruthful: 49079
       JustPutCards: 29963
       MrDoubt: 31883
@@ -256,7 +256,7 @@ MrDoubt:
     avg_cards: 7.945028303962554
     games: 499930
     next:
-      AdptyBoi: 49797
+      AdaptyBoi: 49797
       AlwaysTruthful: 49930
       JustPutCards: 50187
       MrDoubt: 50100
@@ -267,7 +267,7 @@ MrDoubt:
       SusBoi: 49863
       UsualBot: 50026
     prev:
-      AdptyBoi: 50120
+      AdaptyBoi: 50120
       AlwaysTruthful: 49801
       JustPutCards: 49671
       MrDoubt: 50100
@@ -281,7 +281,7 @@ MrDoubt:
     avg_cards: 0.0
     games: 89140
     next:
-      AdptyBoi: 9284
+      AdaptyBoi: 9284
       AlwaysTruthful: 10002
       JustPutCards: 12174
       MrDoubt: 1936
@@ -292,7 +292,7 @@ MrDoubt:
       SusBoi: 3215
       UsualBot: 14322
     prev:
-      AdptyBoi: 2564
+      AdaptyBoi: 2564
       AlwaysTruthful: 722
       JustPutCards: 19708
       MrDoubt: 18217
@@ -307,7 +307,7 @@ MrNoDoubt:
     avg_cards: 6.791627519284603
     games: 415098
     next:
-      AdptyBoi: 38803
+      AdaptyBoi: 38803
       AlwaysTruthful: 41504
       JustPutCards: 36577
       MrDoubt: 49075
@@ -318,7 +318,7 @@ MrNoDoubt:
       SusBoi: 46192
       UsualBot: 48237
     prev:
-      AdptyBoi: 46194
+      AdaptyBoi: 46194
       AlwaysTruthful: 36612
       JustPutCards: 49529
       MrDoubt: 33304
@@ -332,7 +332,7 @@ MrNoDoubt:
     avg_cards: 5.621752855054748
     games: 501479
     next:
-      AdptyBoi: 50282
+      AdaptyBoi: 50282
       AlwaysTruthful: 50296
       JustPutCards: 49574
       MrDoubt: 50088
@@ -343,7 +343,7 @@ MrNoDoubt:
       SusBoi: 49963
       UsualBot: 50603
     prev:
-      AdptyBoi: 50174
+      AdaptyBoi: 50174
       AlwaysTruthful: 50182
       JustPutCards: 50230
       MrDoubt: 50284
@@ -357,7 +357,7 @@ MrNoDoubt:
     avg_cards: 0.0
     games: 86381
     next:
-      AdptyBoi: 11479
+      AdaptyBoi: 11479
       AlwaysTruthful: 8792
       JustPutCards: 12997
       MrDoubt: 1013
@@ -368,7 +368,7 @@ MrNoDoubt:
       SusBoi: 3771
       UsualBot: 2366
     prev:
-      AdptyBoi: 3980
+      AdaptyBoi: 3980
       AlwaysTruthful: 13570
       JustPutCards: 701
       MrDoubt: 16980
@@ -383,7 +383,7 @@ RandomBoi:
     avg_cards: 9.533157090430457
     games: 448245
     next:
-      AdptyBoi: 44988
+      AdaptyBoi: 44988
       AlwaysTruthful: 46766
       JustPutCards: 39552
       MrDoubt: 50115
@@ -394,7 +394,7 @@ RandomBoi:
       SusBoi: 49724
       UsualBot: 47092
     prev:
-      AdptyBoi: 45624
+      AdaptyBoi: 45624
       AlwaysTruthful: 47332
       JustPutCards: 45631
       MrDoubt: 40043
@@ -408,7 +408,7 @@ RandomBoi:
     avg_cards: 8.539019365307105
     games: 500431
     next:
-      AdptyBoi: 50161
+      AdaptyBoi: 50161
       AlwaysTruthful: 50433
       JustPutCards: 49435
       MrDoubt: 50172
@@ -419,7 +419,7 @@ RandomBoi:
       SusBoi: 50193
       UsualBot: 50257
     prev:
-      AdptyBoi: 50506
+      AdaptyBoi: 50506
       AlwaysTruthful: 50088
       JustPutCards: 49966
       MrDoubt: 50438
@@ -433,7 +433,7 @@ RandomBoi:
     avg_cards: 0.0
     games: 52186
     next:
-      AdptyBoi: 5173
+      AdaptyBoi: 5173
       AlwaysTruthful: 3667
       JustPutCards: 9883
       MrDoubt: 57
@@ -444,7 +444,7 @@ RandomBoi:
       SusBoi: 469
       UsualBot: 3165
     prev:
-      AdptyBoi: 4882
+      AdaptyBoi: 4882
       AlwaysTruthful: 2756
       JustPutCards: 4335
       MrDoubt: 10395
@@ -459,7 +459,7 @@ RiskCounter:
     avg_cards: 8.942832867760512
     games: 396644
     next:
-      AdptyBoi: 34473
+      AdaptyBoi: 34473
       AlwaysTruthful: 39678
       JustPutCards: 32051
       MrDoubt: 48155
@@ -470,7 +470,7 @@ RiskCounter:
       SusBoi: 45487
       UsualBot: 45476
     prev:
-      AdptyBoi: 38990
+      AdaptyBoi: 38990
       AlwaysTruthful: 45113
       JustPutCards: 37815
       MrDoubt: 33029
@@ -484,7 +484,7 @@ RiskCounter:
     avg_cards: 7.103647228931105
     games: 499338
     next:
-      AdptyBoi: 49716
+      AdaptyBoi: 49716
       AlwaysTruthful: 49994
       JustPutCards: 49751
       MrDoubt: 49819
@@ -495,7 +495,7 @@ RiskCounter:
       SusBoi: 49890
       UsualBot: 50119
     prev:
-      AdptyBoi: 50238
+      AdaptyBoi: 50238
       AlwaysTruthful: 49944
       JustPutCards: 49801
       MrDoubt: 49619
@@ -509,7 +509,7 @@ RiskCounter:
     avg_cards: 0.0
     games: 102694
     next:
-      AdptyBoi: 15243
+      AdaptyBoi: 15243
       AlwaysTruthful: 10316
       JustPutCards: 17700
       MrDoubt: 1664
@@ -520,7 +520,7 @@ RiskCounter:
       SusBoi: 4403
       UsualBot: 4643
     prev:
-      AdptyBoi: 11248
+      AdaptyBoi: 11248
       AlwaysTruthful: 4831
       JustPutCards: 11986
       MrDoubt: 16590
@@ -535,7 +535,7 @@ StefaBot:
     avg_cards: 8.736455527403654
     games: 374950
     next:
-      AdptyBoi: 37048
+      AdaptyBoi: 37048
       AlwaysTruthful: 37988
       JustPutCards: 29046
       MrDoubt: 48078
@@ -546,7 +546,7 @@ StefaBot:
       SusBoi: 46530
       UsualBot: 36331
     prev:
-      AdptyBoi: 40732
+      AdaptyBoi: 40732
       AlwaysTruthful: 44265
       JustPutCards: 30166
       MrDoubt: 31732
@@ -560,7 +560,7 @@ StefaBot:
     avg_cards: 6.554824069923801
     games: 499744
     next:
-      AdptyBoi: 50040
+      AdaptyBoi: 50040
       AlwaysTruthful: 50222
       JustPutCards: 50089
       MrDoubt: 50080
@@ -571,7 +571,7 @@ StefaBot:
       SusBoi: 49663
       UsualBot: 49981
     prev:
-      AdptyBoi: 49888
+      AdaptyBoi: 49888
       AlwaysTruthful: 50094
       JustPutCards: 50016
       MrDoubt: 49686
@@ -585,7 +585,7 @@ StefaBot:
     avg_cards: 0.0
     games: 124794
     next:
-      AdptyBoi: 12992
+      AdaptyBoi: 12992
       AlwaysTruthful: 12234
       JustPutCards: 21043
       MrDoubt: 2002
@@ -596,7 +596,7 @@ StefaBot:
       SusBoi: 3133
       UsualBot: 13650
     prev:
-      AdptyBoi: 9156
+      AdaptyBoi: 9156
       AlwaysTruthful: 5829
       JustPutCards: 19850
       MrDoubt: 17954
@@ -611,7 +611,7 @@ SusBoi:
     avg_cards: 7.115729069184595
     games: 404989
     next:
-      AdptyBoi: 40843
+      AdaptyBoi: 40843
       AlwaysTruthful: 36797
       JustPutCards: 44225
       MrDoubt: 42532
@@ -622,7 +622,7 @@ SusBoi:
       SusBoi: 38906
       UsualBot: 41823
     prev:
-      AdptyBoi: 46538
+      AdaptyBoi: 46538
       AlwaysTruthful: 49398
       JustPutCards: 31891
       MrDoubt: 30217
@@ -636,7 +636,7 @@ SusBoi:
     avg_cards: 5.766236468775637
     games: 499770
     next:
-      AdptyBoi: 50184
+      AdaptyBoi: 50184
       AlwaysTruthful: 49718
       JustPutCards: 49983
       MrDoubt: 49890
@@ -647,7 +647,7 @@ SusBoi:
       SusBoi: 50116
       UsualBot: 50005
     prev:
-      AdptyBoi: 49874
+      AdaptyBoi: 49874
       AlwaysTruthful: 50205
       JustPutCards: 49750
       MrDoubt: 49863
@@ -661,7 +661,7 @@ SusBoi:
     avg_cards: 0.0
     games: 94781
     next:
-      AdptyBoi: 9341
+      AdaptyBoi: 9341
       AlwaysTruthful: 12921
       JustPutCards: 5758
       MrDoubt: 7358
@@ -672,7 +672,7 @@ SusBoi:
       SusBoi: 11210
       UsualBot: 8182
     prev:
-      AdptyBoi: 3336
+      AdaptyBoi: 3336
       AlwaysTruthful: 807
       JustPutCards: 17859
       MrDoubt: 19646
@@ -687,7 +687,7 @@ UsualBot:
     avg_cards: 8.211627319950578
     games: 376355
     next:
-      AdptyBoi: 39606
+      AdaptyBoi: 39606
       AlwaysTruthful: 36550
       JustPutCards: 24026
       MrDoubt: 49937
@@ -698,7 +698,7 @@ UsualBot:
       SusBoi: 49569
       UsualBot: 39104
     prev:
-      AdptyBoi: 38585
+      AdaptyBoi: 38585
       AlwaysTruthful: 39918
       JustPutCards: 35647
       MrDoubt: 34508
@@ -712,7 +712,7 @@ UsualBot:
     avg_cards: 6.180739131912987
     games: 500019
     next:
-      AdptyBoi: 50278
+      AdaptyBoi: 50278
       AlwaysTruthful: 50028
       JustPutCards: 49768
       MrDoubt: 50189
@@ -723,7 +723,7 @@ UsualBot:
       SusBoi: 50253
       UsualBot: 49710
     prev:
-      AdptyBoi: 49911
+      AdaptyBoi: 49911
       AlwaysTruthful: 49882
       JustPutCards: 49525
       MrDoubt: 50026
@@ -737,7 +737,7 @@ UsualBot:
     avg_cards: 0.0
     games: 123664
     next:
-      AdptyBoi: 10672
+      AdaptyBoi: 10672
       AlwaysTruthful: 13478
       JustPutCards: 25742
       MrDoubt: 252
@@ -748,7 +748,7 @@ UsualBot:
       SusBoi: 684
       UsualBot: 10606
     prev:
-      AdptyBoi: 11326
+      AdaptyBoi: 11326
       AlwaysTruthful: 9964
       JustPutCards: 13878
       MrDoubt: 15518
