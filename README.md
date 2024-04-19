@@ -81,3 +81,17 @@ e.g. {
 'number': random.choice(input_player['playing_cards']),
 'cards': picked_cards 
 }
+
+# Personalized AI
+
+The aim of this project is to attempt to create AIs that achieve better results than other bots. Let's see how to accomplish this.
+
+## Create your AI
+To create your AI, you need to create a class that extends the PlayerAI class. Examples are provided within the scripts `bots/probability.py` and `bots/rule_based.py`. As shown in the previous image, it is necessary to divide the bot's move into two parts: 
+
+- If it's **the first to play**: then it must play cards (in other words, it cannot doubt).
+- If it's **not the first to play**: in this case, the player has free choice: to doubt or to play cards.
+
+## Test your AI
+
+To test your AI, refer to `experiments.py`. Import your bot and add it to the ALGORITHM list. Then execute the script using `python experiments.py`; the results will be saved in `all_games.yaml`. Additionally, you can generate various plots using `graphs/stats.py`.
