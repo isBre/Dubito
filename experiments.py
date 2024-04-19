@@ -27,7 +27,7 @@ ALGORITHMS = [
 ]
 
 AVAILABLE_PLAYERS = list(range(3, 8))
-N_EXPERIMENTS = 1_000
+N_EXPERIMENTS = 1_000_000
 
 def play_games(ALGORITHMS: List, AVAILABLE_PLAYERS: List[int], N_EXPERIMENTS: int) -> Dict:
     """Simulate multiple games and collect statistics."""
