@@ -20,7 +20,7 @@ To reduce the complexity of the experiments, certain simplifications were implem
 
 # AI
 The AI comprises a straightforward tree structure that delineates various turn scenarios in Dubito based on provided information.
-![Dubito Tree AI](dubito.png)
+![Dubito Tree AI](imgs/dubito.png)
 
 ## Input
 
