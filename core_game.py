@@ -4,7 +4,7 @@ from pprint import pprint
 
 from player import Player
 from bots.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
-# from bots.probability import AdptyBoi
+# from bots.probability import AdaptyBoi
 from handlers import GameHandler, StatsHandler, generate_player_data, OutputPlayer
 from machine_learning.dataset import DubitoDataset
 

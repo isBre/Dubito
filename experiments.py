@@ -20,7 +20,7 @@ ALGORITHMS = [
     rule_based.MrNoDoubt,
     rule_based.RandomBoi,
     rule_based.StefaBot,
-    probability.AdptyBoi,
+    probability.AdaptyBoi,
     probability.SusBoi,
     probability.UsualBot,
     probability.RiskCounter,

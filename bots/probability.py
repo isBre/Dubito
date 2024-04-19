@@ -3,7 +3,7 @@ from typing import Dict
 from player import PlayerAI
 
 
-class AdptyBoi(PlayerAI):
+class AdaptyBoi(PlayerAI):
     '''
     Adapt plays based on surrounding players
     '''
