@@ -1,6 +1,6 @@
 # Introduction
 
-The objective of this project was to determine the most proficient AI for playing Dubito. Within this endeavor, you'll discover both the game itself and the framework for conducting numerous experiments involving various AI players.
+The objective of this project was to determine the **most proficient AI for playing Dubito**. Within this endeavor, you'll discover both the game itself and the framework for conducting numerous experiments involving various AI players.
 
 # The Game
 **Dubito** is a dynamic card game designed for 3-8 players. To kick off the game, cards are distributed in a round-robin fashion, starting with the initiating player. 
