@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -16,7 +15,7 @@ class PlayerData:
 @dataclass
 class TurnData:
     board_cards: int
-    playing_cards: List[int]
+    playing_cards: list[int]
     current_number: int
     n_cards_played: int
     streak: int
@@ -30,5 +29,5 @@ class TurnData:
 @dataclass
 class TurnOutput:
     doubt: bool
-    number: Optional[int]  # declared number — only set on first hand
-    cards: Optional[List[int]]  # cards played — None when doubting
+    number: int | None  # declared number — only set on first hand
+    cards: list[int] | None  # cards played — None when doubting

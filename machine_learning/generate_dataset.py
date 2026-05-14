@@ -1,4 +1,4 @@
-from core_game import dubito
+from dubito.core_game import dubito
 from tqdm import tqdm
 from pprint import pprint
 import random

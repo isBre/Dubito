@@ -1,7 +1,7 @@
 import unittest
-from hand import Hand
-from handlers import GameHandler, StatsHandler, generate_player_data
-from core_game import create_deck, assign_cards, initialize, dubito
+from dubito.hand import Hand
+from dubito.handlers import GameHandler, StatsHandler, generate_player_data
+from dubito.core_game import create_deck, assign_cards, initialize, dubito
 from bots.rule_based import AlwaysTruthful, MrDoubt, MrNoDoubt, RandomBoi
 
 
