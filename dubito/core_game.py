@@ -82,6 +82,7 @@ def dubito(
         shuffle_players: bool = True,
         deck_size: int = 14,
         n_jollies: int = 2,  # TODO
+        max_turns: int = 1_000,
 ) -> tuple[dict, dict]:
     
     """
@@ -120,7 +121,7 @@ def dubito(
     
     # Here i want to apply a semplification, game end only when one player win
     # In the actual game, the game ends when there are only two player left
-    while game_handler.n_winners_players() < 1:
+    while game_handler.n_winners_players() < 1 and game_handler.turn.counter < max_turns:
         
         # Just print all the cards of all playing players
         logger += f"\n\n------ Turn {game_handler.turn.counter} ------\n"
@@ -207,6 +208,8 @@ def dubito(
             logger += f"{game_handler.n_playing_players()} Players remaining!\n"
 
     logger += f"\n------ End Game ------"
+    if game_handler.turn.counter >= max_turns:
+        logger += f"\nTurn limit ({max_turns}) reached — all remaining players count as losers."
     logger += f"\nWinners: {[f'Player{p.id}' for p in game_handler.get_winners()]}\n"
     logger += f"Losers: {[f'Player{p.id}' for p in game_handler.playing_players()]}"
     
