@@ -9,18 +9,19 @@ from handlers import GameHandler, StatsHandler, generate_player_data, OutputPlay
 from machine_learning.dataset import DubitoDataset
 
 
-def create_deck(deck_size: int = 14) -> List[int]:
+def create_deck(deck_size: int = 14, n_jollies: int = 0) -> List[int]:
     """
     Create a deck of cards.
 
     Args:
         deck_size (int, optional): The number of cards in the deck. Defaults to 14.
+        n_jollies (int, optional): Number of joker cards to add. Defaults to 0.
 
     Returns:
         List[int]: A shuffled list representing the deck of cards.
     """
     numbers = list(range(1, deck_size))
-    deck = numbers * 4
+    deck = numbers * 4 + [0] * n_jollies
     random.shuffle(deck)
     return deck
 
@@ -52,13 +53,14 @@ def has_n_equal_elements(card_counts: List[int], n: int):
     occurencies = list(card_counts.values())
     return any(occ >= n for occ in occurencies)
 
-def initialize(all_players: List[Player], deck_size: int = 14) -> None:
+def initialize(all_players: List[Player], deck_size: int = 14, n_jollies: int = 0) -> None:
     """
     Initializes the game by distributing cards to players and ensuring no player has four equal cards.
 
     Args:
         all_players (List[Player]): A list of Player objects representing all players in the game.
         deck_size (int, optional): The size of the deck to be used in the game. Defaults to 14.
+        n_jollies (int, optional): Number of joker cards to include. Defaults to 0.
 
     Returns:
         None
@@ -67,7 +69,7 @@ def initialize(all_players: List[Player], deck_size: int = 14) -> None:
         # Reset players' cards before assigning new cards
         [player.reset() for player in all_players]
         # Distribute cards for each player's hand
-        assign_cards(create_deck(deck_size), all_players)
+        assign_cards(create_deck(deck_size, n_jollies), all_players)
         # Check if any player has 4 equal cards
         player_card_counts = [player.cards.count_all() for player in all_players]
         # If somebody has 4 equal cards, just restart this process from scratch, we dont want 4 equal cards
@@ -91,7 +93,7 @@ def dubito(
         all_players (List[Player]): List of Player objects participating in the game.
         shuffle_players (bool, optional): Flag to shuffle player positions. Defaults to True.
         deck_size (int, optional): Size of the deck. Defaults to 14.
-        n_jollies (int, optional): Number of jollies (not implemented). Defaults to 2.
+        n_jollies (int, optional): Number of joker cards added to the deck. Defaults to 2.
 
     Returns:
         Tuple[Dict, Dict]: A tuple containing two dictionaries:
@@ -105,7 +107,7 @@ def dubito(
     # Shuffle players positions
     if shuffle_players: random.shuffle(all_players)
     # Deck and Player initialization
-    initialize(all_players, deck_size)
+    initialize(all_players, deck_size, n_jollies)
     
     logger += f'\n{len(all_players)} Players are playing: {[f"Player{player.id}" for player in all_players]}'
     logger += f'\nGame Start!\n\n'
@@ -154,7 +156,16 @@ def dubito(
             logger += f'Player{this_player.id} ({this_player.__class__.__name__}) doubt Player{prev_player.id} ({prev_player.__class__.__name__})!\n'
             # Check if the last card(s) played from the last player are correct
             # a.k.a. Prev_Player is bluffing or not
-            if game_handler.is_honest():
+            jokers_played = game_handler.jokers_in_latest()
+            if jokers_played:
+                # Joker protection: jokers are discarded, remaining board cards go to the doubter
+                board_cards = list(game_handler.get_board())
+                for j in jokers_played:
+                    board_cards.remove(j)
+                this_player.add_cards(board_cards)
+                stats_handler.increase_player_honesty(prev_player)
+                logger += f"Joker revealed! Player{this_player.id} ({this_player.__class__.__name__}) gets {len(board_cards)} cards, {len(jokers_played)} joker(s) discarded!\n"
+            elif game_handler.is_honest():
                 # This_Player get all the cards
                 this_player.add_cards(game_handler.get_board())
                 # Update player knowledge about other players
@@ -162,7 +173,7 @@ def dubito(
                 logger += f"Player{this_player.id} ({this_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
             else:
                 correct_doubt = True
-                # Prev_Player get all the cards
+                # Prev_Player get all the cards (any jokers already in the board are kept by prev_player)
                 prev_player.add_cards(game_handler.get_board())
                 # Update player knowledge about other players
                 stats_handler.increase_player_dishonesty(prev_player)
@@ -175,6 +186,9 @@ def dubito(
             if game_handler.is_first_hand():
                 # So the first number should be chosed by this_player
                 new_value = output_player.get_number()
+                # A joker (0) cannot be the declared number; fall back to a random valid number
+                if new_value == 0:
+                    new_value = random.choice(game_handler.board.availables)
                 game_handler.set_current_number(new_value)
                 logger += f"Player{this_player.id} call number {new_value}\n"
             # Update the board

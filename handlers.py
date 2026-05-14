@@ -109,7 +109,14 @@ class GameHandler:
         return self.board.number
     
     def is_honest(self) -> bool:
-        return all(card == self.get_current_number() for card in self.get_latest_played_cards())
+        latest = self.get_latest_played_cards()
+        if any(card == 0 for card in latest):
+            return True  # joker (0) acts as any card — play is always valid
+        return all(card == self.get_current_number() for card in latest)
+
+    def jokers_in_latest(self) -> List[int]:
+        """Return list of joker cards (0) among the latest played cards."""
+        return [c for c in self.get_latest_played_cards() if c == 0]
     
     def get_board(self) -> List[int]:
         return self.board.cards
