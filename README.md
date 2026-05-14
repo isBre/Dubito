@@ -100,17 +100,13 @@ At each turn the bot receives a `TurnData` dataclass with the following fields.
 
 ## Output
 
-Instead, the output is a clearly defined dictionary containing three keys:
+Each bot returns a `TurnOutput` dataclass:
 
-- **doubt**: boolean, can be either true or false
-- **number**: represent the number that the player want to pick (only when he is first hand)
-- **cards**: represent the cards the player want to play
-
-e.g. {
-'doubt': False,
-'number': random.choice(input_player['playing_cards']),
-'cards': picked_cards 
-}
+| Field | Type | Description |
+|---|---|---|
+| `doubt` | `bool` | `True` to challenge the previous player, `False` to play cards |
+| `number` | `Optional[int]` | Declared number — only set when opening a new round (first hand) |
+| `cards` | `Optional[List[int]]` | Cards placed face-down — `None` when doubting |
 
 # Personalized AI
 

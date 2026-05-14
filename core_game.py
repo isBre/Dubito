@@ -5,7 +5,7 @@ from pprint import pprint
 from player import Player
 from bots.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
 # from bots.probability import AdaptyBoi
-from handlers import GameHandler, StatsHandler, generate_player_data, OutputPlayer
+from handlers import GameHandler, StatsHandler, generate_player_data
 from machine_learning.dataset import DubitoDataset
 
 
@@ -141,17 +141,16 @@ def dubito(
         # Player Move
         input_player = generate_player_data(game_handler = game_handler, stats_handler = stats_handler)
         untouched_hand = this_player.cards.hand.copy()
-        dict_output_player = this_player.play(input_player)
-        dataset_handler.add_data(untouched_hand, this_player.id, input_player, dict_output_player)
-        output_player = OutputPlayer(dict_output_player)
+        output = this_player.play(input_player)
+        dataset_handler.add_data(untouched_hand, this_player.id, input_player, output)
         stats_handler.increase_turns_played(this_player, game_handler.is_first_hand())
 
-        # Handle Exeptions
-        if output_player.is_doubting() and game_handler.is_first_hand():
+        # Handle Exceptions
+        if output.doubt and game_handler.is_first_hand():
             raise Exception(f"Player{this_player.id} cannot doubt in the first round")
 
         # This_Player is doubting
-        elif output_player.is_doubting():
+        elif output.doubt:
             stats_handler.increase_player_doubts(this_player)
             logger += f'Player{this_player.id} ({this_player.__class__.__name__}) doubt Player{prev_player.id} ({prev_player.__class__.__name__})!\n'
             # Check if the last card(s) played from the last player are correct
@@ -184,15 +183,15 @@ def dubito(
         else:
             # If number_playing was zero means that this is the first hand
             if game_handler.is_first_hand():
-                # So the first number should be chosed by this_player
-                new_value = output_player.get_number()
+                # So the first number should be chosen by this_player
+                new_value = output.number
                 # A joker (0) cannot be the declared number; fall back to a random valid number
                 if new_value == 0:
                     new_value = random.choice(game_handler.board.availables)
                 game_handler.set_current_number(new_value)
                 logger += f"Player{this_player.id} call number {new_value}\n"
             # Update the board
-            new_cards = output_player.get_cards()
+            new_cards = output.cards
             game_handler.set_board_cards(new_cards)
             logger += f"Player{this_player.id} play {new_cards}\n"
 
