@@ -1,4 +1,5 @@
 from player import Player
+from game_data import PlayerData, TurnData
 
 from typing import List, Tuple, Dict
 
@@ -184,40 +185,41 @@ class StatsHandler:
         self.data[player.id]['dishonest_times'] += 1
 
 
-def generate_player_data(game_handler: GameHandler, stats_handler: StatsHandler) -> Dict:
+def generate_player_data(game_handler: GameHandler, stats_handler: StatsHandler) -> TurnData:
     """
     Generate player data based on the current game state.
-    It's useful if you want to generate data for machine learning purpuses
 
     Parameters:
     - game_handler (GameHandler): The game handler object.
     - stats_handler (StatsHandler): The stats handler object.
 
     Returns:
-    - Dict: A dictionary containing various player data.
+    - TurnData: A dataclass containing the current turn state.
     """
-    data = {
-        # Number of cards in the board (0 means you're the first)
-        'board_cards': game_handler.n_cards_board(),
-        # All numbers without discarded cards
-        'playing_cards' : game_handler.board.availables,
-        # the card number called from the previous player (0 means you're the first)
-        'current_number': game_handler.get_current_number(),
-        # Number of cards played by the previous player
-        'n_cards_played' : len(game_handler.board.latests),
-        # Number of turns without doubts
-        'streak' : game_handler.turn.streak,
-    }
-    prev_player = game_handler.players.prev
-    next_player = game_handler.players.next
-    data['prev'] = stats_handler.data[prev_player.id]
-    data['prev']['id'] = prev_player.id
-    data['prev']['n_cards'] = len(prev_player.cards)
-    data['next'] = stats_handler.data[next_player.id]
-    data['next']['id'] = next_player.id
-    data['next']['n_cards'] = len(next_player.cards)
-        
-    return data
+    def _player_data(player: Player) -> PlayerData:
+        s = stats_handler.data[player.id]
+        return PlayerData(
+            id=player.id,
+            n_cards=len(player.cards),
+            turns=s['turns'],
+            not_first_turns=s['not_first_turns'],
+            doubts=s['doubts'],
+            honest_times=s['honest_times'],
+            dishonest_times=s['dishonest_times'],
+        )
+
+    return TurnData(
+        board_cards=game_handler.n_cards_board(),
+        playing_cards=game_handler.board.availables,
+        current_number=game_handler.get_current_number(),
+        n_cards_played=len(game_handler.board.latests),
+        streak=game_handler.turn.streak,
+        n_players=game_handler.n_playing_players(),
+        my_n_cards=len(game_handler.players.this.cards),
+        me=_player_data(game_handler.players.this),
+        prev=_player_data(game_handler.players.prev),
+        next=_player_data(game_handler.players.next),
+    )
 
 class OutputPlayer:
     

@@ -110,7 +110,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if the AI player can play truthfully, False otherwise.
         """
-        return self.cards.has(input_player['current_number'])
+        return self.cards.has(input_player.current_number)
     
     def is_first_turn(self, input_player: Dict) -> bool:
         """
@@ -122,7 +122,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if it's the first turn, False otherwise.
         """
-        return input_player['board_cards'] == 0
+        return input_player.board_cards == 0
     
     def prev_player_started_turn(self, input_player: Dict) -> bool:
         """
@@ -134,7 +134,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if the previous player started the turn, False otherwise.
         """
-        return input_player['n_cards_played'] == input_player['board_cards']
+        return input_player.n_cards_played == input_player.board_cards
 
     def play(self, input_player: Dict) -> Dict:
         """
@@ -232,7 +232,7 @@ class PlayerAI(Player):
         if first_turn:
             how_many_cards = 3 if maximize else random.choice([1, 2, 3])
             random_cards = self.cards.pick_random(how_many_cards)
-            random_number = random.choice(input_player['playing_cards'])
+            random_number = random.choice(input_player.playing_cards)
         else:
             random_cards = self.cards.pick_random(3) if maximize else self.cards.pick_random(random.choice([1, 2, 3]))
 
@@ -272,10 +272,10 @@ class PlayerAI(Player):
                 picked_cards = self.cards.pick_random()
             return {'doubt': False, 'number': picked_cards[0], 'cards': picked_cards}
         else:
-            if maximize: picked_cards = self.cards.pick_all(input_player['current_number'])
+            if maximize: picked_cards = self.cards.pick_all(input_player.current_number)
             else:
-                card_count = self.cards.count(input_player['current_number'])
+                card_count = self.cards.count(input_player.current_number)
                 amount_to_choice = list(range(1, card_count + 1))
                 cards_number = random.choice(amount_to_choice)
-                picked_cards = self.cards.pick(input_player['current_number'], cards_number)
+                picked_cards = self.cards.pick(input_player.current_number, cards_number)
             return {'doubt': False, 'number': None, 'cards': picked_cards}

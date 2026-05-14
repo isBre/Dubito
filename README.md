@@ -66,49 +66,37 @@ Every bot is a specific strategy for answering **A–E**. The available signals 
 
 ## Input
 
-To enable well-informed decision-making, a dictionary is conveyed to the AI at each turn. This dictionary contains the following information:
+At each turn the bot receives a `TurnData` dataclass with the following fields.
 
-- **hand**: the cards of the current player
+**Turn state**
 
-- **board_cards**: number of cards in the board (0 means you're the first)
-- **playing_cards**: all numbers without discarded cards
-- **current_number**: the card number called from the previous player (0 means you're the first)
-- **n_cards_played**: number of cards played by the previous player
-- **streak** : Number of turns without doubts
-- **prev**: information about previous player
-  - **n_cards**: amount of cards of this player
-  - **turns**: how many turns the player played
-  - **not_first_turns**: how many turns the player played (not first hand)
-  - **doubts**: number of times the player doubted
-  - **honest_times**: number of times recorded that this player was honest when doubted
-  - **dishonest_times**: number of times recorded that this player was dishonest when doubted
-- **next**: information about next player
-  - **n_cards**: amount of cards of this player
-  - **turns**: how many turns the player played
-  - **not_first_turns**: how many turns the player played (not first hand)
-  - **doubts**: number of times the player doubted
-  - **honest_times**: number of times recorded that this player was honest when doubted
-  - **dishonest_times**: number of times recorded that this player was dishonest when doubted
+| Field | Type | Description |
+|---|---|---|
+| `board_cards` | `int` | Cards currently on the board (0 = you are first) |
+| `playing_cards` | `List[int]` | Card numbers still in play (not yet discarded as 4-of-a-kind) |
+| `current_number` | `int` | Number declared by the previous player |
+| `n_cards_played` | `int` | How many cards the previous player placed |
+| `streak` | `int` | Consecutive turns without a doubt |
+| `n_players` | `int` | Number of players still active in the game |
 
-e.g. {'board_cards': 1,
- 'current_number': 1,
- 'n_cards_played': 1,
- 'streak' : 1,
- 'next': {'n_cards': 5,
-          'dishonest_times': 0,
-          'doubts': 8,
-          'honest_times': 0,
-          'id': 1,
-          'not_first_turns': 10,
-          'turns': 16},
- 'playing_cards': [1, 7, 10, 11, 13],
- 'prev': {'n_cards': 7,
-          'dishonest_times': 1,
-          'doubts': 0,
-          'honest_times': 1,
-          'id': 2,
-          'not_first_turns': 8,
-          'turns': 12}}
+**Self**
+
+| Field | Type | Description |
+|---|---|---|
+| `my_n_cards` | `int` | Your current card count |
+| `me` | `PlayerData` | Your own historical stats (see below) |
+
+**Neighbours** — `prev` (player before you) and `next` (player after you), both `PlayerData`:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `int` | Player identifier |
+| `n_cards` | `int` | Current card count |
+| `turns` | `int` | Total turns played |
+| `not_first_turns` | `int` | Turns played on a non-opening hand |
+| `doubts` | `int` | Times this player doubted |
+| `honest_times` | `int` | Times caught being honest when doubted |
+| `dishonest_times` | `int` | Times caught bluffing when doubted |
 
 ## Output
 
