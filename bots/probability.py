@@ -1,7 +1,6 @@
 import random
-from typing import Dict
 from bots.base import BotBase
-from game_data import TurnData
+from dubito.game_data import TurnData
 
 
 class AdaptyBoi(BotBase):
@@ -12,7 +11,7 @@ class AdaptyBoi(BotBase):
         self.prev_honesty_prob = 0.5  # higher → prev tends to be honest
         self.next_doubt_prob = 0.5    # higher → next tends to doubt a lot
 
-    def play(self, input_player: TurnData) -> Dict:
+    def play(self, input_player: TurnData) -> dict:
         self._update(input_player)
         return super().play(input_player)
 
@@ -88,7 +87,7 @@ class RiskCounter(BotBase):
         super().__init__(id)
         self.risk = 0.01
 
-    def play(self, input_player: TurnData) -> Dict:
+    def play(self, input_player: TurnData) -> dict:
         self._update_risk(input_player, first_turn=self.is_first_turn(input_player))
         return super().play(input_player)
 

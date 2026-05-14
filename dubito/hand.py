@@ -1,4 +1,3 @@
-from typing import List
 from collections import Counter
 import random
 
@@ -7,20 +6,20 @@ class Hand:
     Represents a hand of cards.
 
     Attributes:
-        hand (List[int]): List of card values in the hand.
+        hand (list[int]): List of card values in the hand.
     """
 
-    def __init__(self, hand: List[int]) -> None:
+    def __init__(self, hand: list[int]) -> None:
         """
         Initialize a Hand object with a list of cards.
 
         Args:
-            hand (List[int]): List of card values.
+            hand (list[int]): List of card values.
         """
         self.hand = hand
         self.hand.sort()
 
-    def pick(self, card_number: int, card_amount: int) -> List[int]:
+    def pick(self, card_number: int, card_amount: int) -> list[int]:
         """
         Pick a specific number of cards with the given card_number from the hand.
 
@@ -29,7 +28,7 @@ class Hand:
             card_amount (int): The number of cards to pick.
 
         Returns:
-            List[int]: List of picked cards with the specified card number.
+            list[int]: List of picked cards with the specified card number.
         """
         if card_amount > len(self.hand):
             raise ValueError("Card amount exceeds the number of cards in the hand")
@@ -44,21 +43,21 @@ class Hand:
         self.hand = remaining_cards
         return picked_cards
     
-    def pick_idx(self, indexes: List[int]) -> List[int]:
+    def pick_idx(self, indexes: list[int]) -> list[int]:
         """
         Pick cards from the hand at specified indexes and remove them.
 
         Args:
-            indexes (List[int]): List of indexes to pick cards from.
+            indexes (list[int]): List of indexes to pick cards from.
 
         Returns:
-            List[int]: List of picked cards.
+            list[int]: List of picked cards.
         """
         picked_cards = [self.hand[i] for i in indexes]
         self.hand = [self.hand[i] for i in range(len(self.hand)) if i not in indexes]
         return picked_cards
     
-    def pick_all(self, number: int) -> List[int]:
+    def pick_all(self, number: int) -> list[int]:
         """
         Remove all occurrences of the specified number from the player's hand.
 
@@ -66,13 +65,13 @@ class Hand:
             number (int): The number to be removed from the hand.
 
         Returns:
-            List[int]: List of removed numbers (equal to the specified number) from the hand.
+            list[int]: List of removed numbers (equal to the specified number) from the hand.
         """
         card_amount = self.hand.count(number)
         self.hand = [num for num in self.hand if num != number]
         return [number] * card_amount
     
-    def pick_random(self, amount: int = 1) -> List[int]:
+    def pick_random(self, amount: int = 1) -> list[int]:
         """
         Randomly picks a specified number of elements from the player's hand,
         removes one occurrence of each picked element, and returns the picked elements.
@@ -82,7 +81,7 @@ class Hand:
                 Defaults to 1.
 
         Returns:
-            List[int]: A list of randomly picked elements from the hand.
+            list[int]: A list of randomly picked elements from the hand.
 
         Raises:
             ValueError: If the specified amount is greater than the number of unique elements in the hand.
@@ -93,24 +92,24 @@ class Hand:
                 self.hand.remove(n)
         return random_numbers
     
-    def pick_most(self) -> List[int]:
+    def pick_most(self) -> list[int]:
         """
         Pick the most common card(s) from the player's hand and return them.
 
         Returns:
-            List[int]: List of picked cards with the most common card number(s).
+            list[int]: List of picked cards with the most common card number(s).
         """
         counter = self.count_all()
         most_common_element, card_amount = counter.most_common(1)[0]
         picked_cards = self.pick(most_common_element, card_amount)
         return picked_cards
 
-    def add(self, cards: List[int]) -> None:
+    def add(self, cards: list[int]) -> None:
         """
         Add a list of cards to the hand.
 
         Args:
-            cards (List[int]): List of cards to add to the hand.
+            cards (list[int]): List of cards to add to the hand.
         """
         self.hand += cards
         self.hand.sort()
@@ -136,7 +135,7 @@ class Hand:
         """
         return self.hand.count(number)
 
-    def discard(self, amount = 4) -> List[int]:
+    def discard(self, amount = 4) -> list[int]:
         """
         Discard cards that appear a specific number of times in the hand.
 
@@ -144,7 +143,7 @@ class Hand:
             amount (int): The number of times a card must appear to be discarded.
 
         Returns:
-            List[int]: List of discarded card values.
+            list[int]: List of discarded card values.
         """
         occurrences = Counter(self.hand)
         elements_to_remove = [num for num, count in occurrences.items() if count >= amount]

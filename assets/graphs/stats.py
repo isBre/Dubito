@@ -33,7 +33,7 @@ y_line = 1 / num_players
 plt.axhline(y=y_line, color='red', linestyle='--')
 
 plt.tight_layout()
-plt.savefig('graphs/win_rate_bar_graph.png')
+plt.savefig('assets/graphs/win_rate_bar_graph.png')
 
 # Step 3.1 Plot bar graph with avg cards in the hand
 avg_cards = [data[player]['total']['avg_cards'] for player in players]
@@ -51,7 +51,7 @@ for bar in bars:
     plt.text(bar.get_x() + bar.get_width()/2 - 0.15, yval, round(yval, 2), va='bottom')  # Vertically align text bottom
 
 plt.tight_layout()
-plt.savefig('graphs/avg_cards_bar_graph.png')
+plt.savefig('assets/graphs/avg_cards_bar_graph.png')
 
 # Step 4: Plot bar graph for each player with win rate compared to players positioned prev and next
 for player in players:
@@ -93,7 +93,7 @@ for player in players:
         plt.text(bar.get_x() + bar.get_width()/2 - 0.15, yval, round(yval, 2), va='bottom')  # Vertically align text bottom
 
     plt.tight_layout()
-    plt.savefig(f'graphs/{player}_win_rate_comparison.png')
+    plt.savefig(f'assets/graphs/{player}_win_rate_comparison.png')
 
 # Close all figures to avoid memory leaks
 plt.close('all')

@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
 import random
-from hand import Hand
-from game_data import TurnOutput
+from .hand import Hand
+from .game_data import TurnOutput
 
 
 class Player(ABC):
@@ -21,20 +20,20 @@ class Player(ABC):
         self.id = id
     
     @abstractmethod
-    def play(self, turn_infos: Dict) -> Dict:
+    def play(self, turn_infos: dict) -> dict:
         """
         Abstract method representing the player's move during their turn.
         Must be implemented by subclasses.
 
         Args:
-            turn_infos (Dict): Information about the current game state.
+            turn_infos (dict): Information about the current game state.
 
         Returns:
             OutputPlayerRecorder: Information about the player's move.
         """
         pass
 
-    def add_cards(self, new_cards: List) -> None:
+    def add_cards(self, new_cards: list) -> None:
         """
         Adds new cards to the player's hand.
 
@@ -43,12 +42,12 @@ class Player(ABC):
         """
         self.cards.add(new_cards)
 
-    def discard_cards(self) -> List[int]:
+    def discard_cards(self) -> list[int]:
         """
         Discards cards from the player's hand.
 
         Returns:
-            List[int]: List of discarded card values.
+            list[int]: List of discarded card values.
         """
         return self.cards.discard(amount = 4)
 
@@ -101,95 +100,95 @@ class PlayerAI(Player):
         self.uncertainty_value = 0.05
         super().__init__(id)
         
-    def can_play_truthfully(self, input_player: Dict) -> bool:
+    def can_play_truthfully(self, input_player: dict) -> bool:
         """
         Checks if the AI player can play truthfully based on the current game state.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Returns:
             bool: True if the AI player can play truthfully, False otherwise.
         """
         return self.cards.has(input_player.current_number)
     
-    def is_first_turn(self, input_player: Dict) -> bool:
+    def is_first_turn(self, input_player: dict) -> bool:
         """
         Checks if it's the first turn of the game.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Returns:
             bool: True if it's the first turn, False otherwise.
         """
         return input_player.board_cards == 0
     
-    def prev_player_started_turn(self, input_player: Dict) -> bool:
+    def prev_player_started_turn(self, input_player: dict) -> bool:
         """
         Checks if the previous player started the current turn.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Returns:
             bool: True if the previous player started the turn, False otherwise.
         """
         return input_player.n_cards_played == input_player.board_cards
 
-    def play(self, input_player: Dict) -> Dict:
+    def play(self, input_player: dict) -> dict:
         """
         Main method to determine the AI player's move during its turn.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Returns:
-            Dict: Information about the AI player's move.
+            dict: Information about the AI player's move.
         """
         if self.is_first_turn(input_player):
             return self.play_first_turn(input_player)
         else:
             return self.play_regular_turn(input_player)
 
-    def play_first_turn(self, input_player: Dict) -> Dict:
+    def play_first_turn(self, input_player: dict) -> dict:
         """
         Abstract method representing the AI player's move on the first turn.
         Must be implemented by subclasses.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Raises:
             NotImplementedError: If the method is not implemented by the subclass.
         """
         raise NotImplementedError("Subclasses must implement play_first_turn method.")
 
-    def play_regular_turn(self, input_player: Dict) -> Dict:
+    def play_regular_turn(self, input_player: dict) -> dict:
         """
         Abstract method representing the AI player's move on regular turns.
         Must be implemented by subclasses.
 
         Args:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
 
         Raises:
             NotImplementedError: If the method is not implemented by the subclass.
         """
         raise NotImplementedError("Subclasses must implement play_regular_turn method.")
 
-    def doubt(self, input_player: Dict, uncertainty : bool) -> Dict:
+    def doubt(self, input_player: dict, uncertainty : bool) -> dict:
         '''
         Doubt Decision for AI Player
 
         Determines whether the player should doubt the previous player's move.
 
         Parameters:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
             uncertainty (bool): Flag indicating uncertainty about the previous player's move.
 
         Returns:
-            Dict: Decision dictionary containing:
+            dict: Decision dictionary containing:
                 - doubt: Boolean indicating whether to doubt.
                 - number: Number declared by the player (if first hand).
                 - cards: Cards played by the player.
@@ -205,20 +204,20 @@ class PlayerAI(Player):
         else:
             return TurnOutput(doubt=True, number=None, cards=None)
     
-    def bluff(self, input_player: Dict, first_turn: bool, uncertainty : bool, maximize: bool) -> Dict:
+    def bluff(self, input_player: dict, first_turn: bool, uncertainty : bool, maximize: bool) -> dict:
         '''
         Bluff Decision for AI Player
 
         Determines whether the player should bluff by playing cards.
 
         Parameters:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
             first_turn (bool): Flag indicating if it's the player's first turn.
             uncertainty (bool): Flag indicating uncertainty about the previous player's move.
             maximize (bool): Flag indicating whether to maximize the bluff.
 
         Returns:
-            Dict: Decision dictionary containing:
+            dict: Decision dictionary containing:
                 - doubt: Boolean indicating whether to doubt.
                 - number: Number declared by the player (if first turn).
                 - cards: Cards played by the player.
@@ -239,20 +238,20 @@ class PlayerAI(Player):
 
         return TurnOutput(doubt=False, number=random_number if first_turn else None, cards=random_cards)
     
-    def play_truthfully(self, input_player: Dict, first_turn : bool, uncertainty : bool, maximize : bool) -> Dict:
+    def play_truthfully(self, input_player: dict, first_turn : bool, uncertainty : bool, maximize : bool) -> dict:
         '''
         Truthful Play Decision for AI Player
 
         Determines whether the player should play truthfully by selecting cards.
 
         Parameters:
-            input_player (Dict): Information provided to the AI about the game state.
+            input_player (dict): Information provided to the AI about the game state.
             first_turn (bool): Flag indicating if it's the player's first turn.
             uncertainty (bool): Flag indicating uncertainty about the previous player's move.
             maximize (bool): Flag indicating whether to maximize the truthfulness.
 
         Returns:
-            Dict: Decision dictionary containing:
+            dict: Decision dictionary containing:
                 - doubt: Boolean indicating whether to doubt.
                 - number: Number declared by the player (if first turn).
                 - cards: Cards played by the player.

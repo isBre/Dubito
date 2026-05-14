@@ -1,17 +1,16 @@
-from player import Player
-from game_data import PlayerData, TurnData
+from .player import Player
+from .game_data import PlayerData, TurnData
 
-from typing import List, Tuple, Dict
 
 
 class TurnHandler:
     """Manages the turns of the game."""
-    def __init__(self, all_players: List[Player]) -> None:
+    def __init__(self, all_players: list[Player]) -> None:
         """
         Initialize a TurnHandler object.
 
         Parameters:
-        - all_players (List[Player]): A list of all players participating in the game.
+        - all_players (list[Player]): A list of all players participating in the game.
         """
         self.counter = 0  # Incremental value of game turns
         self.position = len(all_players) - 1  # Turn Position in [0, len(all_players)]
@@ -19,12 +18,12 @@ class TurnHandler:
 
 class PlayersHandler:
     """Manages the players in the game."""
-    def __init__(self, all_players: List[Player]) -> None:
+    def __init__(self, all_players: list[Player]) -> None:
         """
         Initialize a PlayersHandler object.
 
         Parameters:
-        - all_players (List[Player]): A list of all players participating in the game.
+        - all_players (list[Player]): A list of all players participating in the game.
         """
         self.all = all_players  # All players (currently playing and not)
         self.playing = all_players.copy()  # Players that are playing 
@@ -53,14 +52,14 @@ class GameHandler:
     """Manages the overall game."""
     def __init__(
         self, 
-        all_players: List[Player],
+        all_players: list[Player],
         deck_size: int,
     ) -> None:
         """
         Initialize a GameHandler object.
 
         Parameters:
-        - all_players (List[Player]): A list of all players participating in the game.
+        - all_players (list[Player]): A list of all players participating in the game.
         - deck_size (int): The size of the deck of cards.
         """
         self.turn = TurnHandler(all_players=all_players)
@@ -76,7 +75,7 @@ class GameHandler:
     def n_winners_players(self) -> int:
         return len(self.players.winners)
     
-    def playing_players(self) -> List[Player]:
+    def playing_players(self) -> list[Player]:
         return self.players.playing
     
     def playing_player(self, position : int) -> Player:
@@ -89,7 +88,7 @@ class GameHandler:
         self.turn.counter += 1
         self.turn.streak += 1
     
-    def next_turn(self) -> Tuple[Player, Player]:
+    def next_turn(self) -> tuple[Player, Player]:
         self.increase_turn_counter()
         new_prev_player_pos = self.turn_position()
         new_this_player_pos = (new_prev_player_pos + 1) % self.n_playing_players()
@@ -103,7 +102,7 @@ class GameHandler:
     def is_first_hand(self) -> bool:
         return not self.board.cards
     
-    def get_latest_played_cards(self) -> List[int]:
+    def get_latest_played_cards(self) -> list[int]:
         return self.board.latests
     
     def get_current_number(self) -> list[int]:
@@ -115,11 +114,11 @@ class GameHandler:
             return True  # joker (0) acts as any card — play is always valid
         return all(card == self.get_current_number() for card in latest)
 
-    def jokers_in_latest(self) -> List[int]:
+    def jokers_in_latest(self) -> list[int]:
         """Return list of joker cards (0) among the latest played cards."""
         return [c for c in self.get_latest_played_cards() if c == 0]
     
-    def get_board(self) -> List[int]:
+    def get_board(self) -> list[int]:
         return self.board.cards
     
     def n_cards_board(self) -> int:
@@ -134,11 +133,11 @@ class GameHandler:
     def set_current_number(self, number : int) -> None:
         self.board.number = number
         
-    def set_board_cards(self, cards : List[int]) -> None:
+    def set_board_cards(self, cards : list[int]) -> None:
         self.board.cards += cards
         self.board.latests = cards
         
-    def set_discarded_cards(self, discarded : List[int]) -> None:
+    def set_discarded_cards(self, discarded : list[int]) -> None:
         self.board.availables = [x for x in self.board.availables if x not in discarded]
         
     def set_winners(self, winner : Player) -> None:
@@ -147,18 +146,18 @@ class GameHandler:
         # Edge Case, I update this_player position in case of winning
         self.turn.position = self.players.playing.index(self.players.this)
         
-    def get_winners(self) -> List[Player]:
+    def get_winners(self) -> list[Player]:
         return self.players.winners
 
  
 class StatsHandler:
     """Manages statistical data of players."""
-    def __init__(self, all_players: List[Player]) -> None:
+    def __init__(self, all_players: list[Player]) -> None:
         """
         Initialize a StatsHandler object.
 
         Parameters:
-        - all_players (List[Player]): A list of all players participating in the game.
+        - all_players (list[Player]): A list of all players participating in the game.
         """
         self.data = {}
         for p in all_players:

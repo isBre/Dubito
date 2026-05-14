@@ -1,11 +1,10 @@
-from typing import List, Dict, Tuple
 
 class DubitoDataset:
     def __init__(self) -> None:
         self.who = []
         self.data = []
     
-    def add_data(self, hand: List, who: str, input_player, output_player: Dict) -> None:
+    def add_data(self, hand: list, who: str, input_player, output_player: dict) -> None:
         in_keys = ['board_cards', 'playing_cards', 'current_number', 'n_cards_played', 'streak']
         pl_keys = ['turns', 'not_first_turns', 'doubts', 'honest_times', 'dishonest_times', 'n_cards']
         ou_keys = ['doubt', 'number', 'cards']
@@ -20,7 +19,7 @@ class DubitoDataset:
         self.data.append(data_list)
         self.who.append(who)
     
-    def add_result(self, winners : List, losers : List) -> None:
+    def add_result(self, winners : list, losers : list) -> None:
         winners = [w.id for w in winners]
         for pl, dt in zip(self.who, self.data):
             if pl in winners:
@@ -28,5 +27,5 @@ class DubitoDataset:
             else:
                 dt[-1] = 0
     
-    def get_dataset(self) -> Tuple[List, List]:
+    def get_dataset(self) -> tuple[list, list]:
         return self.data

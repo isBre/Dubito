@@ -1,15 +1,14 @@
-from typing import List, Tuple, Dict
 import random
 from pprint import pprint
 
-from player import Player
+from .player import Player
 from bots.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
 # from bots.probability import AdaptyBoi
-from handlers import GameHandler, StatsHandler, generate_player_data
+from .handlers import GameHandler, StatsHandler, generate_player_data
 from machine_learning.dataset import DubitoDataset
 
 
-def create_deck(deck_size: int = 14, n_jollies: int = 0) -> List[int]:
+def create_deck(deck_size: int = 14, n_jollies: int = 0) -> list[int]:
     """
     Create a deck of cards.
 
@@ -18,20 +17,20 @@ def create_deck(deck_size: int = 14, n_jollies: int = 0) -> List[int]:
         n_jollies (int, optional): Number of joker cards to add. Defaults to 0.
 
     Returns:
-        List[int]: A shuffled list representing the deck of cards.
+        list[int]: A shuffled list representing the deck of cards.
     """
     numbers = list(range(1, deck_size))
     deck = numbers * 4 + [0] * n_jollies
     random.shuffle(deck)
     return deck
 
-def assign_cards(deck: List[int], players: List[Player]):
+def assign_cards(deck: list[int], players: list[Player]):
     """
     Assigns cards from a deck to a list of players in a round-robin fashion.
 
     Parameters:
-        deck (List[int]): A list of integers representing the cards to be distributed.
-        players (List[Player]): A list of Player objects to whom the cards will be assigned.
+        deck (list[int]): A list of integers representing the cards to be distributed.
+        players (list[Player]): A list of Player objects to whom the cards will be assigned.
 
     Returns:
         None
@@ -39,12 +38,12 @@ def assign_cards(deck: List[int], players: List[Player]):
     for i, card in enumerate(deck):
         players[i % len(players)].add_cards([card])
 
-def has_n_equal_elements(card_counts: List[int], n: int):
+def has_n_equal_elements(card_counts: list[int], n: int):
     """
     Checks if any element in the list `card_counts` has a value greater than or equal to `n`.
 
     Args:
-        card_counts (List[int]): A list of integers representing counts of elements.
+        card_counts (list[int]): A list of integers representing counts of elements.
         n (int): The value to compare each element against.
 
     Returns:
@@ -53,12 +52,12 @@ def has_n_equal_elements(card_counts: List[int], n: int):
     occurencies = list(card_counts.values())
     return any(occ >= n for occ in occurencies)
 
-def initialize(all_players: List[Player], deck_size: int = 14, n_jollies: int = 0) -> None:
+def initialize(all_players: list[Player], deck_size: int = 14, n_jollies: int = 0) -> None:
     """
     Initializes the game by distributing cards to players and ensuring no player has four equal cards.
 
     Args:
-        all_players (List[Player]): A list of Player objects representing all players in the game.
+        all_players (list[Player]): A list of Player objects representing all players in the game.
         deck_size (int, optional): The size of the deck to be used in the game. Defaults to 14.
         n_jollies (int, optional): Number of joker cards to include. Defaults to 0.
 
@@ -79,24 +78,24 @@ def initialize(all_players: List[Player], deck_size: int = 14, n_jollies: int = 
 
 
 def dubito(
-        all_players: List[Player],
+        all_players: list[Player],
         shuffle_players: bool = True,
         deck_size: int = 14,
         n_jollies: int = 2,  # TODO
-) -> Tuple[Dict, Dict]:
+) -> tuple[dict, dict]:
     
     """
     Simulates a game of Dubito, a dynamic card game for 3-8 players. 
     Each player takes turns either making a play or doubting the previous player's move until only one player remains.
 
     Parameters:
-        all_players (List[Player]): List of Player objects participating in the game.
+        all_players (list[Player]): List of Player objects participating in the game.
         shuffle_players (bool, optional): Flag to shuffle player positions. Defaults to True.
         deck_size (int, optional): Size of the deck. Defaults to 14.
         n_jollies (int, optional): Number of joker cards added to the deck. Defaults to 2.
 
     Returns:
-        Tuple[Dict, Dict]: A tuple containing two dictionaries:
+        tuple[dict, dict]: A tuple containing two dictionaries:
             - game_result: Contains information about the winners and losers of the game.
             - game_infos: Contains logs and decisions made during the game.
     """
