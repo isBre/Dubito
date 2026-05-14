@@ -221,24 +221,3 @@ def generate_player_data(game_handler: GameHandler, stats_handler: StatsHandler)
         next=_player_data(game_handler.players.next),
     )
 
-class OutputPlayer:
-    
-    """Represents the output of a player."""
-    def __init__(self, output: Dict) -> None:
-        """
-        Initialize an OutputPlayer object.
-
-        Parameters:
-        - output (Dict): Dictionary containing output information.
-        """
-        self.output = output
-        # TODO assert
-    
-    def is_doubting(self) -> bool:
-        return self.output['doubt']
-    
-    def get_number(self) -> bool:
-        return self.output['number']
-    
-    def get_cards(self) -> List[int]:
-        return self.output['cards']

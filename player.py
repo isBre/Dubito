@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 import random
 from hand import Hand
+from game_data import TurnOutput
 
 
 class Player(ABC):
@@ -195,14 +196,14 @@ class PlayerAI(Player):
         '''
         if uncertainty:
             if random.random() > self.uncertainty_value:
-                return {'doubt': True, 'number': None, 'cards': None}
+                return TurnOutput(doubt=True, number=None, cards=None)
             else:
                 if self.can_play_truthfully(input_player):
                     if random.choice([True, False]):
                         return self.play_truthfully(input_player, first_turn = False, uncertainty = False, maximize = False)
                 return self.bluff(input_player, first_turn = False, uncertainty = False, maximize = False)
         else:
-            return {'doubt': True, 'number': None, 'cards': None}
+            return TurnOutput(doubt=True, number=None, cards=None)
     
     def bluff(self, input_player: Dict, first_turn: bool, uncertainty : bool, maximize: bool) -> Dict:
         '''
@@ -236,7 +237,7 @@ class PlayerAI(Player):
         else:
             random_cards = self.cards.pick_random(3) if maximize else self.cards.pick_random(random.choice([1, 2, 3]))
 
-        return {'doubt': False, 'number': random_number if first_turn else None, 'cards': random_cards}
+        return TurnOutput(doubt=False, number=random_number if first_turn else None, cards=random_cards)
     
     def play_truthfully(self, input_player: Dict, first_turn : bool, uncertainty : bool, maximize : bool) -> Dict:
         '''
@@ -270,7 +271,7 @@ class PlayerAI(Player):
             if maximize: picked_cards = self.cards.pick_most()
             else:
                 picked_cards = self.cards.pick_random()
-            return {'doubt': False, 'number': picked_cards[0], 'cards': picked_cards}
+            return TurnOutput(doubt=False, number=picked_cards[0], cards=picked_cards)
         else:
             if maximize: picked_cards = self.cards.pick_all(input_player.current_number)
             else:
@@ -278,4 +279,4 @@ class PlayerAI(Player):
                 amount_to_choice = list(range(1, card_count + 1))
                 cards_number = random.choice(amount_to_choice)
                 picked_cards = self.cards.pick(input_player.current_number, cards_number)
-            return {'doubt': False, 'number': None, 'cards': picked_cards}
+            return TurnOutput(doubt=False, number=None, cards=picked_cards)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -25,3 +25,10 @@ class TurnData:
     me: PlayerData
     prev: PlayerData
     next: PlayerData
+
+
+@dataclass
+class TurnOutput:
+    doubt: bool
+    number: Optional[int]  # declared number — only set on first hand
+    cards: Optional[List[int]]  # cards played — None when doubting
