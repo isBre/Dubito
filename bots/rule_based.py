@@ -1,115 +1,71 @@
 import random
 from typing import Dict
-from player import PlayerAI
+from bots.base import BotBase
 
 
+class AlwaysTruthful(BotBase):
+    """Plays honestly whenever possible, doubts when it can't."""
 
-class AlwaysTruthful(PlayerAI):
-    """
-    A player that (almost) always plays truthfully based on the provided turn information.
-    """
-        
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        return self.play_truthfully(input_player, first_turn = True, uncertainty = True, maximize = True)
-
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        # If you have the correct number play truthfully otherwise doubt
-        if self.can_play_truthfully(input_player):
-            return self.play_truthfully(input_player, first_turn = False, uncertainty = True, maximize = True)
-        else:
-            return self.doubt(input_player, uncertainty = True)
+    def bluff_first_hand(self, p: Dict) -> bool:   return False
+    def maximize_first_hand(self, p: Dict) -> bool: return True
+    def should_doubt(self, p: Dict) -> bool:        return not self.can_play_truthfully(p)
+    def bluff_regular(self, p: Dict) -> bool:       return False
+    def maximize_regular(self, p: Dict) -> bool:    return True
 
 
+class MrNoDoubt(BotBase):
+    """Never doubts. Plays honestly when possible, bluffs otherwise."""
 
-class MrNoDoubt(PlayerAI):
-    """
-    A player that (almost) never doubt, it just try to put cards on the field.
-    If can play correctly, he will.
-    """
-    
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        return self.play_truthfully(input_player, first_turn = True, uncertainty = True, maximize = True)
-    
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        # If you have the correct number play truthfully otherwise bluff
-        if self.can_play_truthfully(input_player):
-            return self.play_truthfully(input_player, first_turn = False, uncertainty = True, maximize = True)
-        else:
-            return self.bluff(input_player, first_turn = False, uncertainty = True, maximize = False)
+    def bluff_first_hand(self, p: Dict) -> bool:   return False
+    def maximize_first_hand(self, p: Dict) -> bool: return True
+    def should_doubt(self, p: Dict) -> bool:        return False
+    def bluff_regular(self, p: Dict) -> bool:       return False
+    def maximize_regular(self, p: Dict) -> bool:    return True
 
 
+class JustPutCards(BotBase):
+    """Always bluffs with 3 cards."""
 
-class JustPutCards(PlayerAI):
-    """
-    A player that want to maximize the amount of cards placed in the field.
-    Will always bluff placing 3 cards.
-    """
-
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        return self.bluff(input_player, first_turn = True, uncertainty = True, maximize = True)
-
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        return self.bluff(input_player, first_turn = False, uncertainty = True, maximize = True)
+    def bluff_first_hand(self, p: Dict) -> bool:   return True
+    def maximize_first_hand(self, p: Dict) -> bool: return True
+    def should_doubt(self, p: Dict) -> bool:        return False
+    def bluff_regular(self, p: Dict) -> bool:       return True
+    def maximize_regular(self, p: Dict) -> bool:    return True
 
 
+class RandomBoi(BotBase):
+    """Everything random."""
 
-class RandomBoi(PlayerAI):
-    """
-    Just Everything random.
-    """
+    def bluff_first_hand(self, p: Dict) -> bool:   return random.choice([True, False])
+    def maximize_first_hand(self, p: Dict) -> bool: return False
 
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        if random.choice([True, False]):
-            return self.bluff(input_player, first_turn = True, uncertainty = False, maximize = False)
-        else:
-            return self.play_truthfully(input_player, first_turn = True, uncertainty = False, maximize = False)
+    def should_doubt(self, p: Dict) -> bool:
+        if self.can_play_truthfully(p):
+            return random.random() < 1/3   # 1 in 3: bluff / honest / doubt
+        return random.choice([True, False]) # 50/50: doubt or bluff
 
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        if self.can_play_truthfully(input_player):
-            move = random.choice(['bluff', 'truthful', 'doubt'])
-            if move == 'bluff': return self.bluff(input_player, first_turn = False, uncertainty = False, maximize = False)
-            elif move == 'truthful': return self.play_truthfully(input_player, first_turn = False, uncertainty = False, maximize = False)
-            elif move == 'doubt': return self.doubt(input_player, uncertainty = False)
-        elif random.choice([True, False]):
-            return self.doubt(input_player, uncertainty = False)
-        else:
-            return self.bluff(input_player, first_turn = False, uncertainty = False, maximize = False)
+    def bluff_regular(self, p: Dict) -> bool:       return random.choice([True, False])
+    def maximize_regular(self, p: Dict) -> bool:    return False
 
 
+class MrDoubt(BotBase):
+    """Always doubts on regular turns."""
 
-class MrDoubt(PlayerAI):
-    """
-    A player that (almost) always doubt.
-    """
-
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        if random.choice([True, False]):
-            return self.bluff(input_player, first_turn = True, uncertainty = False, maximize = True)
-        else:
-            return self.play_truthfully(input_player, first_turn = True, uncertainty = False, maximize = True)
-        
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        return self.doubt(input_player, uncertainty = True)
+    def bluff_first_hand(self, p: Dict) -> bool:   return random.choice([True, False])
+    def maximize_first_hand(self, p: Dict) -> bool: return True
+    def should_doubt(self, p: Dict) -> bool:        return True
+    def bluff_regular(self, p: Dict) -> bool:       return True   # unreachable
+    def maximize_regular(self, p: Dict) -> bool:    return True   # unreachable
 
 
+class StefaBot(BotBase):
+    """Doubts when prev started the round or played 3 cards; otherwise plays."""
 
-class StefaBot(PlayerAI):
-    """
-    If prev_player was playing first turn, then doubt
-    If prev_player was not playing first turn, then plays (normally or bluffs) if prev_player has played 2 or 1. 
-    Bot Stefano doubts if prev_player has played 3 cards.
-    """
+    def bluff_first_hand(self, p: Dict) -> bool:   return random.choice([True, False])
+    def maximize_first_hand(self, p: Dict) -> bool: return True
 
-    def play_first_turn(self, input_player: Dict) -> Dict:
-        if random.choice([True, False]):
-            return self.bluff(input_player, first_turn = True, uncertainty = False, maximize = True)
-        else:
-            return self.play_truthfully(input_player, first_turn = True, uncertainty = False, maximize = True)
-        
-    def play_regular_turn(self, input_player: Dict) -> Dict:
-        if self.prev_player_started_turn(input_player) or input_player['n_cards_played'] == 3:
-            return self.doubt(input_player, uncertainty = True)
-        elif self.can_play_truthfully(input_player):
-            if random.choice([True, False]):
-                return self.play_truthfully(input_player, first_turn = False, uncertainty = False, maximize = True)
-        return self.bluff(input_player, first_turn = False, uncertainty = False, maximize = True)    
+    def should_doubt(self, p: Dict) -> bool:
+        return self.prev_player_started_turn(p) or p.n_cards_played == 3
+
+    def bluff_regular(self, p: Dict) -> bool:       return random.choice([True, False])
+    def maximize_regular(self, p: Dict) -> bool:    return True
