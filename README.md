@@ -16,71 +16,97 @@ The game culminates when only two players remain, resulting in the elimination o
 To reduce the complexity of the experiments, certain simplifications were implemented:
 
 - **Number of winner**: Limited to a single winner, as scenarios with multiple winners in a single game are treated as recursive instances of the "One winner case".
-- **No jollies**: In order to reduce AI complexity.
+- **Jokers**: 2 jokers (value `0`) are included. A joker acts as any card; if doubted while a joker was played, the joker is discarded and the remaining board cards go to the doubter. Jokers already accumulated in the board pile are kept by whoever picks it up.
 
 # AI
-The AI comprises a straightforward tree structure that delineates various turn scenarios in Dubito based on provided information.
-![Dubito Tree AI](imgs/dubito.png)
+
+## Decision Tree
+
+Every bot turn follows this exact structure. The lettered nodes **(A–E)** are the only points where strategy matters — everything else is forced by the rules.
+
+```
+MY TURN
+│
+├─ First hand? (board_cards == 0)
+│   │
+│   ├─ YES ──► Must play cards (doubting is illegal)
+│   │           ├─ [A] Bluff or Honest?
+│   │           │       BLUFF  → pick any cards, declare a random number
+│   │           │       HONEST → pick cards from hand, declare their value
+│   │           └─ [B] How many cards to play? (1, 2, or 3)
+│   │
+│   └─ NO ───► Regular turn
+│               │
+│               ├─ [C] Doubt or Play?
+│               │
+│               ├─ if Doubt ──► challenge prev player's last move
+│               │
+│               └─ if Play
+│                   ├─ Can play truthfully?  (do I hold the current number?)
+│                   │   ├─ YES ──► [D] Bluff or Honest?
+│                   │   │               BLUFF  → pick any cards
+│                   │   │               HONEST → pick matching cards
+│                   │   └─ NO  ──► forced to Bluff (pick any cards)
+│                   │
+│                   └─ [E] How many cards to play? (1, 2, or 3)
+```
+
+Every bot is a specific strategy for answering **A–E**. The available signals to inform those answers are:
+
+| Signal | Informs | What it tells you |
+|---|---|---|
+| `prev.honest_times` / `prev.dishonest_times` | C | Prev player's historical honesty ratio when doubted |
+| `n_cards_played` | C | Cards prev just played (1–3); more cards = more suspicious |
+| `prev.n_cards` | C | Prev's remaining cards; 0 means they're about to win → doubt |
+| `prev_player_started_turn` | C | Prev set the number this round (they went first) |
+| `streak` | C, E | Turns without a doubt; longer = larger pile on the board |
+| `next.doubts` / `next.not_first_turns` | A, D, E | How aggressively the next player doubts; affects how safe you need to be |
+| `next.n_cards` | C, E | Next player's remaining cards |
+| Own hand | A, B, D, E | Which numbers you hold and how many of each |
 
 ## Input
 
-To enable well-informed decision-making, a dictionary is conveyed to the AI at each turn. This dictionary contains the following information:
+At each turn the bot receives a `TurnData` dataclass with the following fields.
 
-- **hand**: the cards of the current player
+**Turn state**
 
-- **board_cards**: number of cards in the board (0 means you're the first)
-- **playing_cards**: all numbers without discarded cards
-- **current_number**: the card number called from the previous player (0 means you're the first)
-- **n_cards_played**: number of cards played by the previous player
-- **streak** : Number of turns without doubts
-- **prev**: information about previous player
-  - **n_cards**: amount of cards of this player
-  - **turns**: how many turns the player played
-  - **not_first_turns**: how many turns the player played (not first hand)
-  - **doubts**: number of times the player doubted
-  - **honest_times**: number of times recorded that this player was honest when doubted
-  - **dishonest_times**: number of times recorded that this player was dishonest when doubted
-- **next**: information about next player
-  - **n_cards**: amount of cards of this player
-  - **turns**: how many turns the player played
-  - **not_first_turns**: how many turns the player played (not first hand)
-  - **doubts**: number of times the player doubted
-  - **honest_times**: number of times recorded that this player was honest when doubted
-  - **dishonest_times**: number of times recorded that this player was dishonest when doubted
+| Field | Type | Description |
+|---|---|---|
+| `board_cards` | `int` | Cards currently on the board (0 = you are first) |
+| `playing_cards` | `List[int]` | Card numbers still in play (not yet discarded as 4-of-a-kind) |
+| `current_number` | `int` | Number declared by the previous player |
+| `n_cards_played` | `int` | How many cards the previous player placed |
+| `streak` | `int` | Consecutive turns without a doubt |
+| `n_players` | `int` | Number of players still active in the game |
 
-e.g. {'board_cards': 1,
- 'current_number': 1,
- 'n_cards_played': 1,
- 'streak' : 1,
- 'next': {'n_cards': 5,
-          'dishonest_times': 0,
-          'doubts': 8,
-          'honest_times': 0,
-          'id': 1,
-          'not_first_turns': 10,
-          'turns': 16},
- 'playing_cards': [1, 7, 10, 11, 13],
- 'prev': {'n_cards': 7,
-          'dishonest_times': 1,
-          'doubts': 0,
-          'honest_times': 1,
-          'id': 2,
-          'not_first_turns': 8,
-          'turns': 12}}
+**Self**
+
+| Field | Type | Description |
+|---|---|---|
+| `my_n_cards` | `int` | Your current card count |
+| `me` | `PlayerData` | Your own historical stats (see below) |
+
+**Neighbours** — `prev` (player before you) and `next` (player after you), both `PlayerData`:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `int` | Player identifier |
+| `n_cards` | `int` | Current card count |
+| `turns` | `int` | Total turns played |
+| `not_first_turns` | `int` | Turns played on a non-opening hand |
+| `doubts` | `int` | Times this player doubted |
+| `honest_times` | `int` | Times caught being honest when doubted |
+| `dishonest_times` | `int` | Times caught bluffing when doubted |
 
 ## Output
 
-Instead, the output is a clearly defined dictionary containing three keys:
+Each bot returns a `TurnOutput` dataclass:
 
-- **doubt**: boolean, can be either true or false
-- **number**: represent the number that the player want to pick (only when he is first hand)
-- **cards**: represent the cards the player want to play
-
-e.g. {
-'doubt': False,
-'number': random.choice(input_player['playing_cards']),
-'cards': picked_cards 
-}
+| Field | Type | Description |
+|---|---|---|
+| `doubt` | `bool` | `True` to challenge the previous player, `False` to play cards |
+| `number` | `Optional[int]` | Declared number — only set when opening a new round (first hand) |
+| `cards` | `Optional[List[int]]` | Cards placed face-down — `None` when doubting |
 
 # Personalized AI
 

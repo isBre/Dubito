@@ -5,18 +5,16 @@ class DubitoDataset:
         self.who = []
         self.data = []
     
-    def add_data(self, hand: List, who: str, input_player : Dict, output_player : Dict) -> None:
-        in_keys_to_append = ['board_cards', 'playing_cards', 'current_number', 'n_cards_played', 'streak']
+    def add_data(self, hand: List, who: str, input_player, output_player: Dict) -> None:
+        in_keys = ['board_cards', 'playing_cards', 'current_number', 'n_cards_played', 'streak']
         pl_keys = ['turns', 'not_first_turns', 'doubts', 'honest_times', 'dishonest_times', 'n_cards']
-        ou_keys_to_append = ['doubt', 'cards', 'number']
+        ou_keys = ['doubt', 'number', 'cards']
         data_list = []
         data_list.append(hand)
-        for key in in_keys_to_append:
-            data_list.append(input_player[key])
-        data_list.extend([input_player['prev'][key] for key in pl_keys])
-        data_list.extend([input_player['next'][key] for key in pl_keys])
-        for key in ou_keys_to_append:
-            data_list.append(output_player[key])
+        data_list.extend([getattr(input_player, k) for k in in_keys])
+        data_list.extend([getattr(input_player.prev, k) for k in pl_keys])
+        data_list.extend([getattr(input_player.next, k) for k in pl_keys])
+        data_list.extend([getattr(output_player, k) for k in ou_keys])
         data_list.append(-1)
         
         self.data.append(data_list)

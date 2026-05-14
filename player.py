@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict
 import random
 from hand import Hand
+from game_data import TurnOutput
 
 
 class Player(ABC):
@@ -110,7 +111,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if the AI player can play truthfully, False otherwise.
         """
-        return self.cards.has(input_player['current_number'])
+        return self.cards.has(input_player.current_number)
     
     def is_first_turn(self, input_player: Dict) -> bool:
         """
@@ -122,7 +123,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if it's the first turn, False otherwise.
         """
-        return input_player['board_cards'] == 0
+        return input_player.board_cards == 0
     
     def prev_player_started_turn(self, input_player: Dict) -> bool:
         """
@@ -134,7 +135,7 @@ class PlayerAI(Player):
         Returns:
             bool: True if the previous player started the turn, False otherwise.
         """
-        return input_player['n_cards_played'] == input_player['board_cards']
+        return input_player.n_cards_played == input_player.board_cards
 
     def play(self, input_player: Dict) -> Dict:
         """
@@ -195,14 +196,14 @@ class PlayerAI(Player):
         '''
         if uncertainty:
             if random.random() > self.uncertainty_value:
-                return {'doubt': True, 'number': None, 'cards': None}
+                return TurnOutput(doubt=True, number=None, cards=None)
             else:
                 if self.can_play_truthfully(input_player):
                     if random.choice([True, False]):
                         return self.play_truthfully(input_player, first_turn = False, uncertainty = False, maximize = False)
                 return self.bluff(input_player, first_turn = False, uncertainty = False, maximize = False)
         else:
-            return {'doubt': True, 'number': None, 'cards': None}
+            return TurnOutput(doubt=True, number=None, cards=None)
     
     def bluff(self, input_player: Dict, first_turn: bool, uncertainty : bool, maximize: bool) -> Dict:
         '''
@@ -232,11 +233,11 @@ class PlayerAI(Player):
         if first_turn:
             how_many_cards = 3 if maximize else random.choice([1, 2, 3])
             random_cards = self.cards.pick_random(how_many_cards)
-            random_number = random.choice(input_player['playing_cards'])
+            random_number = random.choice(input_player.playing_cards)
         else:
             random_cards = self.cards.pick_random(3) if maximize else self.cards.pick_random(random.choice([1, 2, 3]))
 
-        return {'doubt': False, 'number': random_number if first_turn else None, 'cards': random_cards}
+        return TurnOutput(doubt=False, number=random_number if first_turn else None, cards=random_cards)
     
     def play_truthfully(self, input_player: Dict, first_turn : bool, uncertainty : bool, maximize : bool) -> Dict:
         '''
@@ -270,12 +271,12 @@ class PlayerAI(Player):
             if maximize: picked_cards = self.cards.pick_most()
             else:
                 picked_cards = self.cards.pick_random()
-            return {'doubt': False, 'number': picked_cards[0], 'cards': picked_cards}
+            return TurnOutput(doubt=False, number=picked_cards[0], cards=picked_cards)
         else:
-            if maximize: picked_cards = self.cards.pick_all(input_player['current_number'])
+            if maximize: picked_cards = self.cards.pick_all(input_player.current_number)
             else:
-                card_count = self.cards.count(input_player['current_number'])
+                card_count = self.cards.count(input_player.current_number)
                 amount_to_choice = list(range(1, card_count + 1))
                 cards_number = random.choice(amount_to_choice)
-                picked_cards = self.cards.pick(input_player['current_number'], cards_number)
-            return {'doubt': False, 'number': None, 'cards': picked_cards}
+                picked_cards = self.cards.pick(input_player.current_number, cards_number)
+            return TurnOutput(doubt=False, number=None, cards=picked_cards)

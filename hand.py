@@ -2,7 +2,6 @@ from typing import List
 from collections import Counter
 import random
 
-
 class Hand:
     """
     Represents a hand of cards.
