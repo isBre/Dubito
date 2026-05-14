@@ -16,11 +16,53 @@ The game culminates when only two players remain, resulting in the elimination o
 To reduce the complexity of the experiments, certain simplifications were implemented:
 
 - **Number of winner**: Limited to a single winner, as scenarios with multiple winners in a single game are treated as recursive instances of the "One winner case".
-- **No jollies**: In order to reduce AI complexity.
+- **Jokers**: 2 jokers (value `0`) are included. A joker acts as any card; if doubted while a joker was played, the joker is discarded and the remaining board cards go to the doubter. Jokers already accumulated in the board pile are kept by whoever picks it up.
 
 # AI
-The AI comprises a straightforward tree structure that delineates various turn scenarios in Dubito based on provided information.
-![Dubito Tree AI](imgs/dubito.png)
+
+## Decision Tree
+
+Every bot turn follows this exact structure. The lettered nodes **(A–E)** are the only points where strategy matters — everything else is forced by the rules.
+
+```
+MY TURN
+│
+├─ First hand? (board_cards == 0)
+│   │
+│   ├─ YES ──► Must play cards (doubting is illegal)
+│   │           ├─ [A] Bluff or Honest?
+│   │           │       BLUFF  → pick any cards, declare a random number
+│   │           │       HONEST → pick cards from hand, declare their value
+│   │           └─ [B] How many cards to play? (1, 2, or 3)
+│   │
+│   └─ NO ───► Regular turn
+│               │
+│               ├─ [C] Doubt or Play?
+│               │
+│               ├─ if Doubt ──► challenge prev player's last move
+│               │
+│               └─ if Play
+│                   ├─ Can play truthfully?  (do I hold the current number?)
+│                   │   ├─ YES ──► [D] Bluff or Honest?
+│                   │   │               BLUFF  → pick any cards
+│                   │   │               HONEST → pick matching cards
+│                   │   └─ NO  ──► forced to Bluff (pick any cards)
+│                   │
+│                   └─ [E] How many cards to play? (1, 2, or 3)
+```
+
+Every bot is a specific strategy for answering **A–E**. The available signals to inform those answers are:
+
+| Signal | Informs | What it tells you |
+|---|---|---|
+| `prev.honest_times` / `prev.dishonest_times` | C | Prev player's historical honesty ratio when doubted |
+| `n_cards_played` | C | Cards prev just played (1–3); more cards = more suspicious |
+| `prev.n_cards` | C | Prev's remaining cards; 0 means they're about to win → doubt |
+| `prev_player_started_turn` | C | Prev set the number this round (they went first) |
+| `streak` | C, E | Turns without a doubt; longer = larger pile on the board |
+| `next.doubts` / `next.not_first_turns` | A, D, E | How aggressively the next player doubts; affects how safe you need to be |
+| `next.n_cards` | C, E | Next player's remaining cards |
+| Own hand | A, B, D, E | Which numbers you hold and how many of each |
 
 ## Input
 
