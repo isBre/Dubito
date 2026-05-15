@@ -176,6 +176,7 @@ def dubito(
                 prev_player.add_cards(game_handler.get_board())
                 # Update player knowledge about other players
                 stats_handler.increase_player_dishonesty(prev_player)
+                stats_handler.increase_player_successful_doubts(this_player)
                 logger += f"Player{prev_player.id} ({prev_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
             game_handler.reset_board()
 
@@ -194,6 +195,9 @@ def dubito(
             # Update the board
             new_cards = output.cards
             game_handler.set_board_cards(new_cards)
+            stats_handler.add_player_cards_played(this_player, len(new_cards))
+            if not game_handler.is_honest():
+                stats_handler.increase_player_bluffs(this_player)
             logger += f"Player{this_player.id} play {new_cards}\n"
 
         # Discard phase
