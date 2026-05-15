@@ -187,7 +187,8 @@ def dubito(
                 new_value = output.number
                 # A joker (0) cannot be the declared number; fall back to a random valid number
                 if new_value == 0:
-                    new_value = random.choice(game_handler.board.availables)
+                    pool = game_handler.board.availables or output.cards
+                    new_value = random.choice(pool)
                 game_handler.set_current_number(new_value)
                 logger += f"Player{this_player.id} call number {new_value}\n"
             # Update the board

@@ -6,7 +6,7 @@ import yaml
 import copy
 import subprocess
 import sys
-from bots import rule_based, probability
+from bots import rule_based, probability, claude as claude_bots, chatgpt as chatgpt_bots, gemini as gemini_bots
 
 
 ALL_BOTS = {
@@ -20,6 +20,10 @@ ALL_BOTS = {
     'SusBoi':         probability.SusBoi,
     'UsualBot':       probability.UsualBot,
     'RiskCounter':    probability.RiskCounter,
+    'ClaudeBot':      claude_bots.ClaudeBot,
+    'ChatGPTBot':     chatgpt_bots.ChatGPTBot,
+    'ChatGPT_thinking': chatgpt_bots.ChatGPT_thinking,
+    'GeminiBot':      gemini_bots.GeminiBot,
 }
 
 

@@ -237,7 +237,47 @@ Aggressive when the streak is low otherwise Honest. Calculates the risk value co
 - If prev_player was playing first turn, then doubt
 - If prev_player was not playing first turn then check the number of cards of prev_player
   - if prev_player has played 3 cards doubt,
-  - otherwise then with 50% probability be honest or doubt 
+  - otherwise then with 50% probability be honest or doubt
+
+<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
+    <div style="margin-left: 20px; font-size: 32px;">
+        <p><b>ClaudeBot</b></p>
+    </div>
+</div>
+
+A score-based bot that tries to make the mathematically correct decision at each node.
+
+- In the **initial hand**, always plays honestly and maximizes cards played. Concretely: picks all cards of the most-common number in its hand and declares that number. Zero risk, maximum card removal.
+
+- In the **regular hands**, decides whether to doubt using a **suspicion score**:
+
+  ```
+  suspicion = 0.5 × prev_dishonesty_rate + 0.5 × card_suspicion
+
+  card_suspicion:  1 card played → 0.05  (not suspicious)
+                   2 cards played → 0.30
+                   3 cards played → 0.65  (very suspicious)
+  ```
+
+  If prev started the round (they picked the number themselves), `card_suspicion` is cut to 40% — they were more likely to have that number.
+
+  The doubt threshold then scales with how many cards ClaudeBot is currently holding:
+
+  | My card count | Threshold | Reasoning |
+  |---|---|---|
+  | ≤ 4 | 0.75 | Nearly winning — stay safe, avoid picking up cards |
+  | 5–17 | 0.50 | Balanced play |
+  | ≥ 18 | 0.30 | Already drowning in cards — be aggressive |
+
+  Additionally: if prev has **0 cards** (they are about to win), it always doubts regardless of score.
+
+  If ClaudeBot **cannot play truthfully** anyway, the threshold is lowered by 0.15 — if it has to bluff, doubting is sometimes the better gamble.
+
+- **Bluffing** (node D — only when honest play is also possible): ClaudeBot bluffs only when two conditions are both true:
+  1. The next player's doubt rate is **below 35%** (they're unlikely to catch the bluff)
+  2. ClaudeBot has **fewer than 3 matching cards** — because bluffing always plays 3 random cards, while honest play only dumps the matching ones. If there are fewer than 3 matches, bluffing removes *more* cards for the same risk.
+
+- Always **maximizes** cards played.
 
 
 # Result

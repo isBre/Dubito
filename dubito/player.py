@@ -232,7 +232,8 @@ class PlayerAI(Player):
         if first_turn:
             how_many_cards = 3 if maximize else random.choice([1, 2, 3])
             random_cards = self.cards.pick_random(how_many_cards)
-            random_number = random.choice(input_player.playing_cards)
+            pool = input_player.playing_cards if input_player.playing_cards else random_cards
+            random_number = random.choice(pool)
         else:
             random_cards = self.cards.pick_random(3) if maximize else self.cards.pick_random(random.choice([1, 2, 3]))
 

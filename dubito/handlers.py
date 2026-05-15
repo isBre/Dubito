@@ -110,9 +110,10 @@ class GameHandler:
     
     def is_honest(self) -> bool:
         latest = self.get_latest_played_cards()
-        if any(card == 0 for card in latest):
-            return True  # joker (0) acts as any card — play is always valid
-        return all(card == self.get_current_number() for card in latest)
+        current = self.get_current_number()
+        # Each card must either be a joker (wildcard) or match the declared number.
+        # A joker only substitutes for its own slot — non-joker cards still need to match.
+        return all(card == 0 or card == current for card in latest)
 
     def jokers_in_latest(self) -> list[int]:
         """Return list of joker cards (0) among the latest played cards."""

@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dubito</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #1e5a22;
+  --felt:     #1a5020;
+  --felt-bdr: #124018;
+  --dark:     #0c2610;
+  --darker:   #081c0a;
+  --gold:     #dab224;
+  --red:      #d23737;
+  --red-d:    #8a1f1f;
+  --green:    #2dbe4b;
+  --blue:     #3773d2;
+  --purple:   #9b32c8;
+  --cyan:     #32b9c8;
+  --orange:   #dc8228;
+  --gray:     #aaa;
+  --dim:      #666;
+  --white:    #fff;
+  --offwhite: #faf6ee;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', Arial, sans-serif;
+  color: var(--white);
+  overflow: hidden;
+  /* Layered felt texture: fine crosshatch weave + radial vignette */
+  background-color: #163a1a;
+  background-image:
+    /* Diagonal fibers ↗ */
+    repeating-linear-gradient(
+      58deg,
+      transparent 0px, transparent 5px,
+      rgba(0,0,0,0.07) 5px, rgba(0,0,0,0.07) 6px
+    ),
+    /* Diagonal fibers ↘ */
+    repeating-linear-gradient(
+      -58deg,
+      transparent 0px, transparent 5px,
+      rgba(0,0,0,0.07) 5px, rgba(0,0,0,0.07) 6px
+    ),
+    /* Subtle large-scale color variation */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 120px,
+      rgba(255,255,255,0.012) 120px, rgba(255,255,255,0.012) 240px
+    ),
+    /* Radial vignette — bright centre, dark corners */
+    radial-gradient(ellipse at 50% 45%, #246228 0%, #1a5020 48%, #0c2410 100%);
+}
+
+/* ── Screens ── */
+#screen-setup, #screen-game, #screen-gameover {
+  position: absolute; inset: 0; display: none;
+  align-items: center; justify-content: center;
+}
+#screen-setup.active, #screen-game.active, #screen-gameover.active { display: flex; }
+
+/* ══════════════════════════════════════════════════════
+   SETUP SCREEN
+══════════════════════════════════════════════════════ */
+#screen-setup {
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.setup-panel {
+  background: var(--darker);
+  border: 2px solid var(--gold);
+  border-radius: 20px;
+  padding: 36px 44px 40px;
+  width: 560px;
+  max-width: 100%;
+}
+
+.setup-title {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--gold);
+  text-align: center;
+  letter-spacing: 10px;
+  margin-bottom: 32px;
+}
+
+.setup-row {
+  background: #0c200e;
+  border-radius: 12px;
+  padding: 14px 20px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.setup-row label { font-weight: 600; font-size: 15px; }
+
+.stepper { display: flex; align-items: center; gap: 14px; }
+.stepper button {
+  width: 36px; height: 36px; border-radius: 8px; border: none;
+  background: var(--dark); color: var(--white); font-size: 20px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+}
+.stepper button:hover { background: #1a401e; }
+.stepper .count { font-size: 22px; font-weight: 700; color: var(--gold); min-width: 28px; text-align: center; }
+
+.toggle-btn {
+  padding: 8px 22px; border-radius: 8px; border: none; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+}
+.toggle-btn.on  { background: var(--green); color: #fff; }
+.toggle-btn.off { background: #3a3a3a; color: var(--gray); }
+
+.section-label { font-size: 13px; color: var(--gray); font-weight: 600; margin: 10px 0 10px; text-align: center; }
+
+.bot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.bot-chip {
+  padding: 8px 0;
+  border-radius: 8px; border: none; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: background .15s, color .15s;
+  text-align: center;
+}
+.bot-chip.on  { background: #2d6ec8; color: var(--white); }
+.bot-chip.off { background: #2a2a2a; color: var(--dim); }
+
+.start-btn {
+  width: 100%; padding: 16px; background: var(--green); border: none; border-radius: 14px;
+  color: var(--white); font-size: 20px; font-weight: 700; cursor: pointer;
+  letter-spacing: 2px; transition: background .15s;
+}
+.start-btn:hover { background: #25a040; }
+.start-btn:disabled { background: #2a4a2e; color: #555; cursor: not-allowed; }
+
+/* ══════════════════════════════════════════════════════
+   GAME SCREEN
+══════════════════════════════════════════════════════ */
+#screen-game {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.game-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Top status bar */
+.topbar {
+  background: var(--darker);
+  border-bottom: 2px solid var(--dark);
+  padding: 0 20px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.topbar-info { color: var(--gray); font-size: 13px; }
+.topbar-turn { font-size: 13px; font-weight: 700; }
+.topbar-turn.human { color: var(--cyan); }
+.topbar-turn.bot   { color: var(--gold); }
+
+/* Main area (table + strip + hand + buttons) */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--darker);
+  border-left: 2px solid var(--dark);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 10px;
+  overflow: hidden;
+}
+
+.sidebar-title { font-size: 12px; font-weight: 700; color: var(--dim); margin-bottom: 10px; border-bottom: 1px solid var(--dark); padding-bottom: 8px; }
+
+.log-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.log-msg {
+  font-size: 12px; line-height: 1.4; color: #888; padding: 4px 0;
+  border-bottom: 1px solid #0d1f0f; flex-shrink: 0;
+}
+.log-msg.latest { color: var(--white); }
+
+/* Table area */
+.table-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-container {
+  position: relative;
+  width: 100%;
+  /* Maintain roughly 760:340 aspect ratio, cap height so it doesn't dominate */
+  aspect-ratio: 760 / 340;
+  max-height: 370px;
+  flex-shrink: 0;
+}
+
+/* Oval felt — percentage-based so it scales with the container */
+.table-oval {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  height: 88%;
+  border: 3px solid #0d3010;
+  border-radius: 50%;
+  /* Rich felt: tight crosshatch weave + inner highlight + shadow rim */
+  background-color: #1a5020;
+  background-image:
+    /* Tight woven fibers ↗ */
+    repeating-linear-gradient(
+      45deg,
+      transparent 0px, transparent 3px,
+      rgba(255,255,255,0.028) 3px, rgba(255,255,255,0.028) 4px
+    ),
+    /* Tight woven fibers ↘ */
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0px, transparent 3px,
+      rgba(255,255,255,0.028) 3px, rgba(255,255,255,0.028) 4px
+    ),
+    /* Radial inner glow — center slightly lighter, rim darker */
+    radial-gradient(ellipse at 50% 42%, #236128 0%, #1a5020 55%, #112e15 100%);
+  /* Inset shadow to give the felt depth and a rim groove */
+  box-shadow:
+    inset 0 0 40px rgba(0,0,0,0.55),
+    inset 0 0  8px rgba(0,0,0,0.35),
+    0 4px 24px rgba(0,0,0,0.5);
+}
+
+/* Board pile (centre) */
+.board-pile {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.board-empty {
+  background: var(--darker);
+  border: 2px solid #2a4a2e;
+  border-radius: 12px;
+  padding: 12px 20px;
+  color: var(--dim);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.board-declared {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.5px;
+}
+
+.board-last-played {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.board-count-badge {
+  position: absolute;
+  top: -6px; right: -12px;
+  background: #3a3a5a;
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--white);
+  z-index: 5;
+}
+
+/* Player slots (positioned absolutely by JS) */
+.player-slot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  z-index: 2;
+}
+
+/* YOU marker */
+.you-marker {
+  background: var(--darker);
+  border: 2px solid var(--cyan);
+  border-radius: 20px;
+  padding: 5px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cyan);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.you-marker.current { border-color: var(--gold); color: var(--gold); }
+.you-badge {
+  background: #3a3a5a;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.you-marker.current .you-badge { background: var(--gold); color: #000; }
+
+/* Bot card stack */
+.bot-stack {
+  position: relative;
+  width: 50px;
+  height: 70px;
+}
+
+.bot-stack .stacked-card {
+  position: absolute;
+  width: 50px;
+  height: 70px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #163a94, #0e2560);
+  border: 2px solid #3752c8;
+}
+
+.bot-stack .stacked-card:nth-child(1) { top: -6px; left: -6px; }
+.bot-stack .stacked-card:nth-child(2) { top: -4px; left: -4px; }
+.bot-stack .stacked-card:nth-child(3) { top: -2px; left: -2px; }
+.bot-stack .stacked-card:nth-child(4) { top:  0;   left:  0;   }
+
+
+.card-count-badge {
+  position: absolute;
+  top: -6px; right: -10px;
+  background: #3a3a5a;
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--white);
+  z-index: 5;
+}
+.bot-stack.current .card-count-badge { background: var(--gold); color: #000; }
+
+.bot-name {
+  font-size: 11px;
+  color: var(--gray);
+  max-width: 90px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bot-name.current { color: var(--gold); font-weight: 700; }
+
+.role-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.role-tag.playing { color: var(--gold); background: transparent; }
+
+/* ── Turn-order strip ── */
+.turn-strip {
+  background: var(--darker);
+  border-top: 2px solid var(--dark);
+  border-bottom: 2px solid var(--dark);
+  height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.turn-strip::-webkit-scrollbar { display: none; }
+
+.strip-label { font-size: 11px; color: var(--dim); white-space: nowrap; margin-right: 4px; }
+
+.strip-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 2px solid #3a6040;
+  background: #1a301e;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.strip-chip.current { background: #4a3a08; border-color: var(--gold); color: var(--gold); }
+.strip-chip.prev    { background: #4a2808; border-color: var(--orange); color: var(--orange); }
+.strip-chip.human   { background: #082e33; border-color: var(--cyan); color: var(--cyan); }
+.strip-chip.dead    { background: #1a1a1a; border-color: #333; color: var(--dim); }
+
+.strip-arrow { color: #3a6040; font-size: 12px; flex-shrink: 0; }
+
+/* ── Hand tray ── */
+.hand-tray {
+  background: var(--darker);
+  border-top: 2px solid var(--dark);
+  padding: 10px 20px 8px;
+  flex-shrink: 0;
+}
+
+.hand-label { font-size: 12px; color: var(--dim); margin-bottom: 8px; font-weight: 600; }
+
+.hand-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  min-height: 108px;
+  align-items: flex-end;
+}
+
+/* ── Face-up card ── */
+.card {
+  width: 68px;
+  height: 96px;
+  background: var(--offwhite);
+  border-radius: 8px;
+  border: 1px solid #999;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform .12s, box-shadow .12s;
+  user-select: none;
+}
+.card:hover { transform: translateY(-4px); }
+.card.selected {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 18px 4px rgba(218,178,36,0.55);
+  border-color: var(--gold);
+}
+
+.card-rank {
+  position: absolute;
+  font-weight: 700;
+  line-height: 1;
+}
+.card-rank.top-left  { top: 5px; left: 6px; font-size: 13px; }
+.card-rank.center    { top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 26px; }
+.card-rank.bot-right { bottom: 5px; right: 6px; font-size: 13px; transform: rotate(180deg); }
+
+.card-rank.red    { color: #c82020; }
+.card-rank.purple { color: var(--purple); }
+.card-rank.dark   { color: #1a1a1a; }
+
+/* Face-down card (small, for board) */
+.card-down {
+  width: 50px;
+  height: 70px;
+  background: linear-gradient(135deg, #163a94, #0e2560);
+  border-radius: 6px;
+  border: 2px solid #3752c8;
+  position: relative;
+  display: inline-block;
+}
+.card-down::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 28px; height: 36px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 2px solid #2a4aaa;
+}
+
+/* Board stack visual */
+.board-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.board-stack-cards {
+  position: relative;
+  width: 72px;
+  height: 86px;
+}
+.board-stack-cards .layer {
+  position: absolute;
+  width: 64px;
+  height: 82px;
+  background: linear-gradient(135deg, #163a94, #0e2560);
+  border-radius: 7px;
+  border: 2px solid #3752c8;
+}
+.board-stack-cards .layer:nth-child(1) { top: -6px; left: -6px; }
+.board-stack-cards .layer:nth-child(2) { top: -3px; left: -3px; }
+.board-stack-cards .layer:nth-child(3) { top:  0;   left:  0;   }
+
+/* ── Action bar ── */
+.action-bar {
+  background: var(--dark);
+  border-top: 2px solid #0a1a0b;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.btn-doubt {
+  padding: 12px 28px; border-radius: 10px; border: none;
+  background: var(--red); color: var(--white); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.btn-doubt:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+.btn-doubt:not(:disabled):hover { background: #b82020; }
+
+.btn-play {
+  padding: 12px 28px; border-radius: 10px; border: none;
+  background: var(--green); color: var(--white); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.btn-play:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+.btn-play:not(:disabled):hover { background: #25a040; }
+
+.hint-text { flex: 1; text-align: center; font-size: 12px; color: var(--dim); }
+
+/* Loading overlay on buttons */
+.loading .btn-doubt, .loading .btn-play { opacity: 0.5; pointer-events: none; }
+
+/* ══════════════════════════════════════════════════════
+   NUMBER PICKER MODAL
+══════════════════════════════════════════════════════ */
+#number-picker {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+#number-picker.show { display: flex; }
+
+.picker-box {
+  background: var(--darker);
+  border: 2px solid var(--gold);
+  border-radius: 18px;
+  padding: 28px 36px 24px;
+  text-align: center;
+  max-width: 90vw;
+}
+.picker-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
+.picker-hint  { font-size: 12px; color: var(--dim); margin-top: 14px; }
+
+.picker-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.num-btn {
+  width: 62px; height: 72px; border-radius: 10px; border: none;
+  font-size: 24px; font-weight: 700; cursor: pointer;
+  transition: transform .1s;
+}
+.num-btn:hover { transform: scale(1.08); }
+.num-btn.regular { background: var(--blue); color: var(--white); }
+.num-btn.joker   { background: var(--purple); color: var(--white); }
+
+/* ══════════════════════════════════════════════════════
+   GAME OVER SCREEN
+══════════════════════════════════════════════════════ */
+#screen-gameover {
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  padding: 40px 20px;
+}
+
+.gameover-hero {
+  background: var(--darker);
+  border: 3px solid var(--gold);
+  border-radius: 20px;
+  padding: 28px 48px;
+  text-align: center;
+  min-width: 360px;
+}
+.gameover-hero.lose { border-color: var(--red); }
+
+.gameover-title {
+  font-size: 46px;
+  font-weight: 800;
+}
+.gameover-title.win  { color: var(--green); }
+.gameover-title.lose { color: var(--red); }
+.gameover-title.draw { color: var(--gray); }
+
+.standings-box {
+  background: var(--darker);
+  border: 1px solid var(--dark);
+  border-radius: 14px;
+  padding: 20px 32px;
+  min-width: 360px;
+}
+.standings-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dim);
+  border-bottom: 1px solid var(--dark);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.standing-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #0d1f0f;
+  gap: 16px;
+  font-size: 15px;
+}
+.standing-row:last-child { border-bottom: none; }
+.standing-pos  { color: var(--gold); font-weight: 700; min-width: 40px; }
+.standing-name { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.standing-name.you > .sname { color: var(--green); font-weight: 700; }
+.standing-bot-type { font-size: 11px; color: var(--dim); font-weight: 500; }
+.standing-cards { color: var(--gray); font-size: 13px; }
+
+/* ── Career stats box ── */
+.stats-box {
+  background: var(--darker);
+  border: 1px solid var(--dark);
+  border-radius: 14px;
+  padding: 18px 28px 14px;
+  min-width: 360px;
+}
+.stats-title {
+  font-size: 13px; font-weight: 700; color: var(--dim);
+  border-bottom: 1px solid var(--dark);
+  padding-bottom: 10px; margin-bottom: 16px; text-align: center;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.stats-reset-btn {
+  font-size: 10px; font-weight: 600; color: var(--dim);
+  background: none; border: 1px solid #333; border-radius: 6px;
+  padding: 2px 8px; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.stats-reset-btn:hover { color: var(--red); border-color: var(--red); }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.stat-item { text-align: center; }
+.stat-value {
+  font-size: 22px; font-weight: 800; color: var(--gold); line-height: 1;
+}
+.stat-value.green { color: var(--green); }
+.stat-value.cyan  { color: var(--cyan);  }
+.stat-label {
+  font-size: 10px; color: var(--dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;
+}
+
+.again-btn {
+  padding: 16px 52px; background: var(--blue); border: none; border-radius: 14px;
+  color: var(--white); font-size: 20px; font-weight: 700; cursor: pointer;
+  letter-spacing: 2px; transition: background .15s;
+}
+.again-btn:hover { background: #2a5ab8; }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid #333;
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Keyboard navigation focus ring ── */
+.card.kbd-focus {
+  outline: 2px solid var(--cyan);
+  outline-offset: 4px;
+}
+.btn-doubt.kbd-focus, .btn-play.kbd-focus {
+  outline: 3px solid var(--cyan);
+  outline-offset: 3px;
+  box-shadow: 0 0 10px rgba(50,185,200,.5);
+}
+.num-btn.kbd-focus {
+  outline: 3px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+/* ── Action chip (who is doing what, shown above player slot) ── */
+.action-chip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  z-index: 10;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  animation: chipIn .2s ease-out;
+}
+@keyframes chipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+}
+.action-chip.play    { background: var(--green);  color: #fff; }
+.action-chip.doubt   { background: var(--orange); color: #fff; }
+.action-chip.take    { background: var(--red);    color: #fff; }
+.action-chip.joker   { background: var(--purple); color: #fff; }
+.action-chip.discard { background: #444;          color: #aaa; }
+.action-chip.win     { background: var(--gold);   color: #000; }
+
+/* New-message slide-in */
+@keyframes msgIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0);   }
+}
+.log-msg.new { animation: msgIn 0.25s ease-out; }
+
+/* ── Board pile event glow animations ──
+   Applied to inner elements so the glow hugs the actual card visual,
+   not the invisible outer flex container.                           ── */
+@keyframes boardPlay {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(45,190,75,0)); }
+  35%     { filter: drop-shadow(0 0 14px rgba(45,190,75,.9)); }
+}
+@keyframes boardDoubt {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(220,130,40,0)); }
+  35%     { filter: drop-shadow(0 0 14px rgba(220,130,40,1)); }
+}
+@keyframes boardTake {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(210,55,55,0)); }
+  35%     { filter: drop-shadow(0 0 14px rgba(210,55,55,1)); }
+}
+/* Targets: the actual card-stack element or the "board empty" box */
+.board-stack.anim-play  { animation: boardPlay  .7s ease-out; }
+.board-stack.anim-doubt { animation: boardDoubt .7s ease-out; }
+.board-empty.anim-take  { animation: boardTake  .7s ease-out; }
+
+/* ── Player card-stack / YOU-marker glow animations ── */
+@keyframes stackTake {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(210,55,55,0)); }
+  35%     { filter: drop-shadow(0 0 12px rgba(210,55,55,1)); }
+}
+@keyframes stackWin {
+  0%,100% { filter: drop-shadow(0 0 0px rgba(218,178,36,0)); }
+  35%     { filter: drop-shadow(0 0 12px rgba(218,178,36,1)); }
+}
+/* Applied to .bot-stack or .you-marker directly */
+.bot-stack.anim-take,  .you-marker.anim-take { animation: stackTake .7s ease-out; }
+.bot-stack.anim-win,   .you-marker.anim-win  { animation: stackWin  .7s ease-out; }
+
+/* ── Badge count bump ── */
+@keyframes badgeBump {
+  0%   { transform: scale(1);   }
+  40%  { transform: scale(1.55); }
+  100% { transform: scale(1);   }
+}
+.card-count-badge.bump, .you-badge.bump { animation: badgeBump .38s ease-out; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--darker); }
+::-webkit-scrollbar-thumb { background: #2a4a2e; border-radius: 3px; }
+
+/* ── Flying card overlay ── */
+#card-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 500;
+  overflow: hidden;
+}
+
+.fly-card {
+  position: absolute;
+  width: 46px;
+  height: 64px;
+  border-radius: 6px;
+  border: 2px solid #3752c8;
+  background: linear-gradient(135deg, #163a94, #0e2560);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.fly-card.gold {
+  background: linear-gradient(135deg, #7a5010, #c49020);
+  border-color: var(--gold);
+  box-shadow: 0 0 8px rgba(218,178,36,.6);
+}
+</style>
+</head>
+<body>
+
+<!-- Flying card animation layer (above everything) -->
+<div id="card-overlay"></div>
+
+<!-- ══════════ SETUP SCREEN ══════════ -->
+<div id="screen-setup" class="active">
+  <div class="setup-panel">
+    <div class="setup-title">DUBITO</div>
+
+    <div class="setup-row">
+      <label>Players (you included)</label>
+      <div class="stepper">
+        <button id="btn-n-minus">−</button>
+        <span class="count" id="n-players-display">4</span>
+        <button id="btn-n-plus">+</button>
+      </div>
+    </div>
+
+    <div class="setup-row">
+      <label>Reveal bot identities</label>
+      <button class="toggle-btn on" id="btn-show-names">ON</button>
+    </div>
+
+    <div class="section-label">Bot pool — click to toggle</div>
+    <div class="bot-grid" id="bot-grid"></div>
+
+    <button class="start-btn" id="btn-start">START GAME</button>
+  </div>
+</div>
+
+<!-- ══════════ GAME SCREEN ══════════ -->
+<div id="screen-game">
+  <div class="topbar">
+    <span class="topbar-info" id="topbar-info">Loading…</span>
+    <span class="topbar-turn" id="topbar-turn"></span>
+  </div>
+
+  <div class="game-layout">
+    <div class="main-area">
+      <!-- Table -->
+      <div class="table-wrap">
+        <div class="table-container" id="table-container">
+          <div class="table-oval"></div>
+          <div class="board-pile" id="board-pile"></div>
+          <!-- player-slot divs injected by JS -->
+        </div>
+      </div>
+
+      <!-- Turn-order strip -->
+      <div class="turn-strip" id="turn-strip"></div>
+
+      <!-- Hand tray -->
+      <div class="hand-tray">
+        <div class="hand-label" id="hand-label">Your hand (0 cards)</div>
+        <div class="hand-cards" id="hand-cards"></div>
+      </div>
+
+      <!-- Action bar -->
+      <div class="action-bar" id="action-bar">
+        <button class="btn-doubt" id="btn-doubt" disabled>DOUBT</button>
+        <span class="hint-text" id="hint-text">Waiting…</span>
+        <button class="btn-play"  id="btn-play"  disabled>PLAY</button>
+      </div>
+    </div>
+
+    <!-- Sidebar log -->
+    <div class="sidebar">
+      <div class="sidebar-title">Event Log</div>
+      <div class="log-messages" id="log-messages"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ NUMBER PICKER MODAL ══════════ -->
+<div id="number-picker">
+  <div class="picker-box">
+    <div class="picker-title">Declare a number for this round</div>
+    <div class="picker-numbers" id="picker-numbers"></div>
+    <div class="picker-hint">← → navigate · Enter select · ESC cancel</div>
+  </div>
+</div>
+
+<!-- ══════════ GAME OVER SCREEN ══════════ -->
+<div id="screen-gameover">
+  <div class="gameover-hero" id="gameover-hero">
+    <div class="gameover-title" id="gameover-title"></div>
+  </div>
+  <div class="standings-box">
+    <div class="standings-title">Final Standings</div>
+    <div id="standings-rows"></div>
+  </div>
+  <div class="stats-box" id="stats-box"></div>
+  <button class="again-btn" id="btn-again">PLAY AGAIN</button>
+</div>
+
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────────────────
+let gameId        = null;
+let gameState     = null;
+let selectedCards = [];   // indices into sorted hand
+let pendingNumber = null; // waiting for user to pick a number (first hand)
+let isLoading     = false;
+let prevMessages  = [];   // last rendered message list (for animation diffing)
+
+// ── Keyboard navigation ───────────────────────────────────────────────────────
+let kbdMode      = 'hand'; // 'hand' | 'action'
+let kbdHandIdx   = 0;      // cursor position in hand
+let kbdActionIdx = 1;      // 0 = DOUBT, 1 = PLAY
+let kbdPickerIdx = 0;      // cursor position in number picker
+
+// Setup state
+let setupState = {
+  nPlayers:  4,
+  showNames: true,
+  botSel:    {},   // name -> bool
+};
+let allBotNames = [];
+
+// ── Utility ──────────────────────────────────────────────────────────────────
+const NAMES = {0:'★',1:'A',2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'10',11:'J',12:'Q',13:'K'};
+
+function cn(v) { return NAMES[v] !== undefined ? NAMES[v] : String(v); }
+
+function cardColorClass(v) {
+  if (v === 0) return 'purple';
+  if ([1,11,12,13].includes(v)) return 'red';
+  return 'dark';
+}
+
+function ordinal(n) {
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    const msg = err.error || res.statusText;
+    if (msg === 'game not found') {
+      // Server was restarted — session lost. Return to setup cleanly.
+      gameId    = null;
+      gameState = null;
+      setLoading(false);
+      showScreen('setup');
+      // brief visual feedback in the setup panel title area
+      const title = document.querySelector('.setup-title');
+      if (title) {
+        title.textContent = 'SESSION LOST';
+        title.style.color = 'var(--red)';
+        setTimeout(() => {
+          title.textContent = 'DUBITO';
+          title.style.color = '';
+        }, 2000);
+      }
+      throw new Error('__handled__');
+    }
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── Message animation ─────────────────────────────────────────────────────────
+function _showLogMessages(messages, newestIsNew = false) {
+  const area = document.getElementById('log-messages');
+  // Remove 'latest' from the previous newest entry
+  area.querySelector('.log-msg.latest')?.classList.remove('latest', 'new');
+
+  // Append only new messages (those not already in the DOM)
+  const existing = area.children.length;
+  messages.slice(existing).forEach((msg, i) => {
+    const div = document.createElement('div');
+    const isLast = existing + i === messages.length - 1;
+    div.className = 'log-msg' + (isLast ? ' latest' : '') + (newestIsNew && isLast ? ' new' : '');
+    div.textContent = msg;
+    area.appendChild(div);
+  });
+
+  // Re-mark the newest as latest
+  const all = area.querySelectorAll('.log-msg');
+  all.forEach(el => el.classList.remove('latest'));
+  if (all.length) all[all.length - 1].classList.add('latest');
+
+  // Auto-scroll to the bottom
+  area.scrollTop = area.scrollHeight;
+}
+
+/**
+ * After an API response, replay each new message with a pause so the
+ * player can follow what happened, then do a full render at the end.
+ */
+// ── Keyboard navigation ───────────────────────────────────────────────────────
+
+function updateKbdFocus() {
+  document.querySelectorAll('.kbd-focus').forEach(el => el.classList.remove('kbd-focus'));
+  if (!gameState) return;
+  const isMyTurn = gameState.players?.find(p => p.is_human)?.is_current ?? false;
+  if (!isMyTurn || isLoading) return;
+
+  if (kbdMode === 'hand') {
+    const cards = document.querySelectorAll('#hand-cards .card');
+    if (cards.length > 0) {
+      kbdHandIdx = Math.max(0, Math.min(kbdHandIdx, cards.length - 1));
+      const target = cards[kbdHandIdx];
+      target.classList.add('kbd-focus');
+      // Keep the focused card visible inside the scrollable tray
+      target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
+  } else {
+    // action mode — focus whichever of the two buttons is not disabled,
+    // preferring the one at kbdActionIdx
+    const order = kbdActionIdx === 0
+      ? ['btn-doubt', 'btn-play']
+      : ['btn-play',  'btn-doubt'];
+    for (const id of order) {
+      const btn = document.getElementById(id);
+      if (btn && !btn.disabled) { btn.classList.add('kbd-focus'); break; }
+    }
+  }
+}
+
+function _updatePickerKbdFocus() {
+  const btns = document.querySelectorAll('#picker-numbers .num-btn');
+  btns.forEach((btn, i) => btn.classList.toggle('kbd-focus', i === kbdPickerIdx));
+}
+
+document.addEventListener('keydown', e => {
+  // Number picker open — handle separately
+  if (document.getElementById('number-picker').classList.contains('show')) {
+    const btns = Array.from(document.querySelectorAll('#picker-numbers .num-btn'));
+    if (!btns.length) return;
+    switch (e.key) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        kbdPickerIdx = (kbdPickerIdx - 1 + btns.length) % btns.length;
+        _updatePickerKbdFocus(); break;
+      case 'ArrowRight':
+        e.preventDefault();
+        kbdPickerIdx = (kbdPickerIdx + 1) % btns.length;
+        _updatePickerKbdFocus(); break;
+      case 'Enter': case ' ':
+        e.preventDefault();
+        btns[kbdPickerIdx]?.click(); break;
+      case 'Escape':
+        e.preventDefault();
+        document.getElementById('number-picker').classList.remove('show'); break;
+    }
+    return;
+  }
+
+  // Game screen only, human's turn, not loading
+  if (!gameState || gameState.status !== 'player_turn') return;
+  const isMyTurn = gameState.players?.find(p => p.is_human)?.is_current ?? false;
+  if (!isMyTurn || isLoading) return;
+
+  const cards = document.querySelectorAll('#hand-cards .card');
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      e.preventDefault();
+      if (kbdMode === 'hand' && cards.length > 0) {
+        kbdHandIdx = (kbdHandIdx - 1 + cards.length) % cards.length;
+      } else {
+        kbdActionIdx = 0; // shift focus toward DOUBT
+      }
+      updateKbdFocus(); break;
+
+    case 'ArrowRight':
+      e.preventDefault();
+      if (kbdMode === 'hand' && cards.length > 0) {
+        kbdHandIdx = (kbdHandIdx + 1) % cards.length;
+      } else {
+        kbdActionIdx = 1; // shift focus toward PLAY
+      }
+      updateKbdFocus(); break;
+
+    case 'ArrowDown':
+      e.preventDefault();
+      kbdMode = 'action';
+      updateKbdFocus(); break;
+
+    case 'ArrowUp':
+      e.preventDefault();
+      kbdMode = 'hand';
+      updateKbdFocus(); break;
+
+    case ' ': case 'Enter':
+      e.preventDefault();
+      if (kbdMode === 'hand') {
+        if (cards.length > 0) toggleCard(kbdHandIdx);
+      } else {
+        // Trigger whichever button the focus ring is actually on
+        const focused = document.querySelector('#action-bar .kbd-focus');
+        if (focused) focused.click();
+      }
+      break;
+
+    case 'Escape':
+      e.preventDefault();
+      kbdMode = 'hand';
+      updateKbdFocus(); break;
+  }
+});
+
+// ── Per-frame actor chip ──────────────────────────────────────────────────────
+function _highlightActor(frame) {
+  // Clear any chip left from the previous frame
+  document.querySelectorAll('.action-chip').forEach(el => el.remove());
+
+  // Which player slot and what label/colour to use
+  const CHIP = {
+    play:        { pid: frame.actor_id,  cls: 'play',    text: 'PLAYS'    },
+    doubt:       { pid: frame.actor_id,  cls: 'doubt',   text: 'DOUBTS'   },
+    take_honest: { pid: frame.target_id, cls: 'take',    text: 'TAKES'    },
+    take_bluff:  { pid: frame.target_id, cls: 'take',    text: 'BUSTED'   },
+    joker:       { pid: frame.target_id, cls: 'joker',   text: 'JOKER!'   },
+    discard:     { pid: frame.actor_id,  cls: 'discard', text: 'DISCARDS' },
+    win:         { pid: frame.actor_id,  cls: 'win',     text: 'WINS!'    },
+  };
+
+  const cfg = CHIP[frame.event_type];
+  if (!cfg || cfg.pid == null) return;
+
+  const slot = document.querySelector(`.player-slot[data-pid="${cfg.pid}"]`);
+  if (!slot) return;
+
+  const chip = document.createElement('div');
+  chip.className = `action-chip ${cfg.cls}`;
+  chip.textContent = cfg.text;
+  slot.appendChild(chip);
+}
+
+// ── Per-frame board update ─────────────────────────────────────────────────────
+function _renderBoardFromFrame(frame) {
+  const pile = document.getElementById('board-pile');
+  pile.innerHTML = _boardHTML(frame.board_cards, frame.declared_name, frame.last_n_played);
+  // Apply glow on the relevant inner element
+  if (frame.board_cards === 0) {
+    if (['take_honest', 'take_bluff', 'joker'].includes(frame.event_type))
+      pile.querySelector('.board-empty')?.classList.add('anim-take');
+  } else {
+    const stack = pile.querySelector('.board-stack');
+    if (frame.event_type === 'play')  stack?.classList.add('anim-play');
+    if (frame.event_type === 'doubt') stack?.classList.add('anim-doubt');
+  }
+}
+
+// ── Per-frame player badge update ─────────────────────────────────────────────
+function _flashPlayerSlots(frame) {
+  const playerCards = frame.players_cards || {};
+  for (const [pidStr, nCards] of Object.entries(playerCards)) {
+    const slot = document.querySelector(`.player-slot[data-pid="${pidStr}"]`);
+    if (!slot) continue;
+    const badge = slot.querySelector('.card-count-badge, .you-badge');
+    if (badge && parseInt(badge.textContent) !== nCards) {
+      badge.textContent = nCards;
+      badge.classList.remove('bump');
+      void badge.offsetWidth;
+      badge.classList.add('bump');
+    }
+  }
+  // Glow the INNER visual of the target player (bot-stack or you-marker)
+  if (frame.target_id != null) {
+    const targetSlot = document.querySelector(`.player-slot[data-pid="${frame.target_id}"]`);
+    if (targetSlot) {
+      const STACK_ANIM = {
+        take_honest: 'anim-take',
+        take_bluff:  'anim-take',
+        joker:       'anim-take',
+        win:         'anim-win',
+      };
+      const cls = STACK_ANIM[frame.event_type];
+      if (cls) {
+        // Target the actual visual element so the glow is tight
+        const inner = targetSlot.querySelector('.bot-stack, .you-marker');
+        if (inner) {
+          inner.classList.remove('anim-take', 'anim-win');
+          void inner.offsetWidth;
+          inner.classList.add(cls);
+        }
+      }
+    }
+  }
+}
+
+// ── Card flight animation ──────────────────────────────────────────────────────
+
+/**
+ * Fly `count` face-down cards from fromEl to toEl (or float upward if toEl is null).
+ * Cards spread slightly from the source center, travel with a natural arc,
+ * then fade just before arrival. Returns when all cards have landed.
+ */
+async function flyCards(fromEl, toEl, count, { gold = false } = {}) {
+  if (!fromEl || count <= 0) return;
+
+  const overlay = document.getElementById('card-overlay');
+  const CW = 46, CH = 64;
+
+  const fr = fromEl.getBoundingClientRect();
+  const fx = fr.left + fr.width  / 2 - CW / 2;
+  const fy = fr.top  + fr.height / 2 - CH / 2;
+
+  let dx, dy;
+  if (toEl) {
+    const tr = toEl.getBoundingClientRect();
+    dx = (tr.left + tr.width  / 2 - CW / 2) - fx;
+    dy = (tr.top  + tr.height / 2 - CH / 2) - fy;
+  } else {
+    // No target: float upward and fade
+    dx = (Math.random() - 0.5) * 30;
+    dy = -90;
+  }
+
+  const DUR     = 380;           // travel time ms
+  const n       = Math.min(count, 7);
+  const stagger = Math.min(55, 140 / n);
+
+  const promises = [];
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'fly-card' + (gold ? ' gold' : '');
+
+    // Slight random spread from the source so cards look like a hand, not a clone
+    const ox = (Math.random() - 0.5) * 18;
+    const oy = (Math.random() - 0.5) * 14;
+    el.style.left = (fx + ox) + 'px';
+    el.style.top  = (fy + oy) + 'px';
+    overlay.appendChild(el);
+
+    promises.push(new Promise(res => {
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          // Travel + slight random end-rotation; fade in the last 30% of travel
+          const rot = (Math.random() - 0.5) * 22;
+          el.style.transition =
+            `transform ${DUR}ms cubic-bezier(.3,0,.2,1),` +
+            `opacity   ${Math.round(DUR * 0.3)}ms ${Math.round(DUR * 0.7)}ms`;
+          el.style.transform = `translate(${dx - ox}px, ${dy - oy}px) rotate(${rot}deg)`;
+          el.style.opacity   = '0';
+          setTimeout(() => { el.remove(); res(); }, DUR + 30);
+        });
+      }, i * stagger);
+    }));
+  }
+
+  await Promise.all(promises);
+}
+
+/**
+ * For a given animation frame, fly the appropriate cards between elements,
+ * then return. Board/badge snap-updates happen AFTER this resolves.
+ */
+async function _flyCardsForFrame(frame, prevBoardCards) {
+  const boardEl  = document.getElementById('board-pile');
+  const actorEl  = document.querySelector(`.player-slot[data-pid="${frame.actor_id}"]`);
+  const targetEl = document.querySelector(`.player-slot[data-pid="${frame.target_id}"]`);
+
+  switch (frame.event_type) {
+    case 'play':
+      // Cards travel from actor slot → board pile
+      await flyCards(actorEl, boardEl, frame.last_n_played || 1);
+      break;
+
+    case 'take_honest':
+    case 'take_bluff':
+    case 'joker':
+      // Whole board travels to the target player (doubter or bluffer)
+      await flyCards(boardEl, targetEl, prevBoardCards || 1);
+      break;
+
+    case 'discard':
+      // 4 cards float up and vanish from the actor
+      await flyCards(actorEl, null, 4);
+      break;
+
+    case 'win':
+      // Gold cards float up from the winner's slot
+      await flyCards(actorEl, null, 4, { gold: true });
+      break;
+
+    // 'doubt' has no card movement — just the chip + log message
+    default:
+      break;
+  }
+}
+
+// ── Main animation driver ──────────────────────────────────────────────────────
+async function animateAndRender(state) {
+  const frames = state.frames || [];
+
+  if (frames.length === 0) {
+    prevMessages = [...state.messages];
+    render(state);
+    return;
+  }
+
+  // Build player slots once upfront so _flashPlayerSlots can find them by data-pid.
+  // Don't render the hand here — it's driven frame-by-frame via frame.human_hand so
+  // cards appear/return in sync with the event log rather than all at once.
+  if (state.status !== 'game_over') {
+    updateActionBar(state);
+    renderPlayerSlots(state);
+    renderTurnStrip(state);
+  }
+
+  // Step through frames: each frame is one event (play, doubt, take, discard, win)
+  let visibleMsgs = [...prevMessages];
+
+  // Track board card count across frames so take-events know how many cards to fly
+  const initBoardCountEl = document.querySelector('#board-pile .board-count');
+  let prevBoardCards = initBoardCountEl ? parseInt(initBoardCountEl.textContent) : 0;
+
+  for (let i = 0; i < frames.length; i++) {
+    const frame = frames[i];
+
+    // 1. Show action chip + log message immediately
+    _highlightActor(frame);
+    visibleMsgs = [...visibleMsgs, frame.msg];
+    _showLogMessages(visibleMsgs, true);
+
+    // 2. Fly cards between elements (awaited — board snaps AFTER cards land)
+    await _flyCardsForFrame(frame, prevBoardCards);
+    prevBoardCards = frame.board_cards;
+
+    // 3. Snap-update board pile (count + glow)
+    _renderBoardFromFrame(frame);
+
+    // 4. Snap-update player badge counts + slot glow
+    _flashPlayerSlots(frame);
+
+    // 5. Update hand tray to match the human's hand at this exact moment
+    if (frame.human_hand !== undefined) {
+      renderHandCards({ ...state, hand: frame.human_hand });
+    }
+
+    if (i < frames.length - 1) await sleep(1000);
+  }
+
+  prevMessages = [...state.messages];
+
+  // If it's now the human's turn, reset keyboard cursor to hand mode
+  const isMyTurn = state.players?.find(p => p.is_human)?.is_current ?? false;
+  if (isMyTurn) { kbdMode = 'hand'; kbdHandIdx = 0; }
+
+  // Final full render syncs topbar, turn strip, hand, etc.
+  render(state);
+  // Show keyboard cursor now that it's (possibly) human's turn
+  updateKbdFocus();
+}
+
+function setLoading(on) {
+  isLoading = on;
+  const bar = document.getElementById('action-bar');
+  if (on) {
+    bar.classList.add('loading');
+  } else {
+    bar.classList.remove('loading');
+    // Re-evaluate button states now that loading is done
+    if (gameState) updateActionBar(gameState);
+  }
+}
+
+// ── Setup screen ─────────────────────────────────────────────────────────────
+async function initSetup() {
+  allBotNames = await api('/api/bots');
+  setupState.botSel = {};
+  for (const n of allBotNames) setupState.botSel[n] = true;
+  renderSetup();
+}
+
+function renderSetup() {
+  document.getElementById('n-players-display').textContent = setupState.nPlayers;
+
+  const nameBtn = document.getElementById('btn-show-names');
+  nameBtn.textContent = setupState.showNames ? 'ON' : 'OFF';
+  nameBtn.className   = 'toggle-btn ' + (setupState.showNames ? 'on' : 'off');
+
+  const grid = document.getElementById('bot-grid');
+  grid.innerHTML = '';
+  for (const name of allBotNames) {
+    const on = setupState.botSel[name];
+    const btn = document.createElement('button');
+    btn.className   = 'bot-chip ' + (on ? 'on' : 'off');
+    btn.textContent = name;
+    btn.onclick = () => {
+      const next = !setupState.botSel[name];
+      // Prevent deselecting the last one
+      if (!next && Object.values(setupState.botSel).filter(Boolean).length <= 1) return;
+      setupState.botSel[name] = next;
+      renderSetup();
+    };
+    grid.appendChild(btn);
+  }
+}
+
+document.getElementById('btn-n-minus').onclick = () => {
+  setupState.nPlayers = Math.max(2, setupState.nPlayers - 1);
+  renderSetup();
+};
+document.getElementById('btn-n-plus').onclick = () => {
+  setupState.nPlayers = Math.min(8, setupState.nPlayers + 1);
+  renderSetup();
+};
+document.getElementById('btn-show-names').onclick = () => {
+  setupState.showNames = !setupState.showNames;
+  renderSetup();
+};
+
+document.getElementById('btn-start').onclick = async () => {
+  const botPool = allBotNames.filter(n => setupState.botSel[n]);
+  await newGame({ n_players: setupState.nPlayers, bot_pool: botPool, show_names: setupState.showNames });
+};
+
+document.getElementById('btn-again').onclick = () => {
+  showScreen('setup');
+};
+
+// ── Game creation ─────────────────────────────────────────────────────────────
+async function newGame(cfg) {
+  const startBtn = document.getElementById('btn-start');
+  startBtn.disabled = true;
+  startBtn.innerHTML = '<span class="spinner"></span>Starting…';
+  try {
+    selectedCards = [];
+    pendingNumber = null;
+    prevMessages  = [];
+    kbdMode       = 'hand';
+    document.getElementById('log-messages').innerHTML = '';
+    kbdHandIdx    = 0;
+    kbdActionIdx  = 1;
+    const state = await api('/api/game', 'POST', cfg);
+    gameId    = state.game_id;
+    gameState = state;
+    showScreen('game');
+    await animateAndRender(state);
+  } catch (e) {
+    alert('Failed to start game: ' + e.message);
+  } finally {
+    startBtn.disabled = false;
+    startBtn.textContent = 'START GAME';
+  }
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function playCards() {
+  if (isLoading || selectedCards.length === 0) return;
+
+  const isFirst = gameState.is_first_hand;
+  if (isFirst && pendingNumber === null) {
+    showNumberPicker(gameState.available_numbers);
+    return;
+  }
+
+  // Capture selection now, before clearing it
+  const playedIndices = new Set([...selectedCards].sort((a, b) => a - b));
+
+  setLoading(true);
+
+  // Optimistic update: remove played cards from hand immediately so the user
+  // sees them leave the tray the instant they click PLAY (before API returns).
+  selectedCards = [];
+  const optimisticHand = (gameState?.hand || []).filter((_, i) => !playedIndices.has(i));
+  renderHandCards({ ...gameState, hand: optimisticHand });
+  updateActionBar(gameState);
+
+  try {
+    const body = { card_indices: [...playedIndices] };
+    if (isFirst) body.number = pendingNumber;
+    const state = await api(`/api/game/${gameId}/play`, 'POST', body);
+    gameState     = state;
+    pendingNumber = null;
+    await animateAndRender(state);
+  } catch (e) {
+    if (e.message !== '__handled__') alert('Error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function doubtPlayer() {
+  if (isLoading) return;
+  setLoading(true);
+  try {
+    const state = await api(`/api/game/${gameId}/doubt`, 'POST');
+    gameState     = state;
+    selectedCards = [];
+    pendingNumber = null;
+    await animateAndRender(state);
+  } catch (e) {
+    if (e.message !== '__handled__') alert('Error: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function toggleCard(i) {
+  if (isLoading) return;
+  if (selectedCards.includes(i)) {
+    selectedCards = selectedCards.filter(x => x !== i);
+  } else if (selectedCards.length < 3) {
+    selectedCards.push(i);
+  }
+  renderHandCards(gameState);
+  updateActionBar(gameState);
+  // Keep keyboard focus ring visible after hand re-renders
+  kbdHandIdx = i;
+  updateKbdFocus();
+}
+
+function showNumberPicker(available) {
+  const container = document.getElementById('picker-numbers');
+  container.innerHTML = '';
+  for (const v of available) {
+    const btn = document.createElement('button');
+    btn.className   = 'num-btn ' + (v === 0 ? 'joker' : 'regular');
+    btn.textContent = cn(v);
+    btn.onclick     = () => pickNumber(v);
+    container.appendChild(btn);
+  }
+  kbdPickerIdx = 0;
+  document.getElementById('number-picker').classList.add('show');
+  _updatePickerKbdFocus();
+}
+
+function pickNumber(n) {
+  pendingNumber = n;
+  document.getElementById('number-picker').classList.remove('show');
+  // Now actually submit
+  playCards();
+}
+
+document.getElementById('number-picker').addEventListener('click', e => {
+  if (e.target === document.getElementById('number-picker')) {
+    document.getElementById('number-picker').classList.remove('show');
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('number-picker').classList.remove('show');
+  }
+});
+
+document.getElementById('btn-doubt').onclick = doubtPlayer;
+document.getElementById('btn-play').onclick  = playCards;
+
+// ── Render dispatcher ─────────────────────────────────────────────────────────
+function render(state) {
+  if (state.status === 'game_over') {
+    renderGameOver(state);
+  } else {
+    renderGame(state);
+  }
+}
+
+function showScreen(name) {
+  for (const id of ['screen-setup', 'screen-game', 'screen-gameover']) {
+    document.getElementById(id).classList.remove('active');
+  }
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ── renderGame ────────────────────────────────────────────────────────────────
+function renderGame(state) {
+  showScreen('game');
+
+  // ── Topbar
+  const parts = [`Turn ${state.turn}`];
+  if (!state.is_first_hand) {
+    parts.push(`Board: ${state.board_cards} cards`);
+    if (state.declared_name) parts.push(`Declared: ${state.declared_name}s`);
+    parts.push(`Streak: ${state.streak}`);
+  } else {
+    parts.push('New round — play cards and pick a number');
+  }
+  document.getElementById('topbar-info').textContent = parts.join('   |   ');
+
+  const currentPlayer = state.players.find(p => p.is_current);
+  const turnEl = document.getElementById('topbar-turn');
+  if (currentPlayer) {
+    turnEl.textContent = currentPlayer.is_human ? 'Your turn' : `${currentPlayer.display_name}'s turn`;
+    turnEl.className   = 'topbar-turn ' + (currentPlayer.is_human ? 'human' : 'bot');
+  }
+
+  // ── Board pile
+  renderBoard(state);
+
+  // ── Player slots on the oval
+  renderPlayerSlots(state);
+
+  // ── Turn-order strip
+  renderTurnStrip(state);
+
+  // ── Hand
+  renderHandCards(state);
+
+  // ── Action bar
+  updateActionBar(state);
+
+  // ── Log
+  renderLog(state);
+
+  // ── Keyboard focus ring
+  updateKbdFocus();
+}
+
+function _boardHTML(board_cards, declared_name, last_n_played) {
+  if (board_cards === 0) return `<div class="board-empty">board<br>empty</div>`;
+  const layers = Math.min(board_cards, 3);
+  let layerHtml = '';
+  for (let i = 0; i < layers; i++) layerHtml += `<div class="layer"></div>`;
+  const declaredHtml = declared_name
+    ? `<div class="board-declared">${declared_name}s</div>` : '';
+  const lastN = last_n_played || 0;
+  const lastPlayedHtml = lastN > 0
+    ? `<div class="board-last-played">${lastN} last played</div>` : '';
+  return `
+    <div class="board-stack">
+      <div class="board-stack-cards">
+        ${layerHtml}
+        <span class="board-count-badge">${board_cards}</span>
+      </div>
+      ${declaredHtml}
+      ${lastPlayedHtml}
+    </div>`;
+}
+
+function renderBoard(state) {
+  document.getElementById('board-pile').innerHTML =
+    _boardHTML(state.board_cards, state.declared_name, state.last_n_played);
+}
+
+function renderPlayerSlots(state) {
+  const container = document.getElementById('table-container');
+  // Remove old player slots
+  container.querySelectorAll('.player-slot').forEach(el => el.remove());
+
+  const players = state.players;
+  const n = players.length;
+  const humanIdx = players.findIndex(p => p.is_human);
+
+  // Use actual rendered container size so positions scale with the layout
+  const CW = container.offsetWidth  || 760;
+  const CH = container.offsetHeight || 340;
+  const cx = CW / 2, cy = CH / 2;
+  // Keep radii proportional to the original 760×340 layout
+  const rx = cx * 0.816;   // 310 / 380 ≈ 0.816
+  const ry = cy * 0.824;   // 140 / 170 ≈ 0.824
+
+  players.forEach((p, i) => {
+    const off   = (i - humanIdx + n) % n;
+    const angle = Math.PI / 2 + off * (2 * Math.PI / n);
+    const x = cx + rx * Math.cos(angle);
+    const y = cy + ry * Math.sin(angle);
+
+    const slot = document.createElement('div');
+    slot.className = 'player-slot';
+    slot.dataset.pid = p.id;
+    slot.style.left = x + 'px';
+    slot.style.top  = y + 'px';
+
+    if (p.is_human) {
+      slot.innerHTML = buildYouMarker(p);
+    } else {
+      slot.innerHTML = buildBotSlot(p);
+    }
+
+    container.appendChild(slot);
+  });
+}
+
+function buildYouMarker(p) {
+  const cls = p.is_current ? 'you-marker current' : 'you-marker';
+  return `<div class="${cls}">
+    YOU <span class="you-badge">${p.n_cards}</span>
+  </div>`;
+}
+
+function buildBotSlot(p) {
+  if (!p.is_playing) return '';
+
+  const stackCls = p.is_current ? 'bot-stack current' : 'bot-stack';
+  const layers = Math.min(Math.max(p.n_cards, 1), 4);
+  let layerHtml = '';
+  for (let i = 0; i < layers; i++) layerHtml += `<div class="stacked-card"></div>`;
+
+  const nameCls = p.is_current ? 'bot-name current' : 'bot-name';
+  const shortName = p.display_name.length > 12 ? p.display_name.slice(0, 11) + '…' : p.display_name;
+
+  let roleTag = '';
+  if (p.is_current) {
+    roleTag = `<span class="role-tag playing">PLAYING</span>`;
+  }
+
+  return `
+    <div class="${stackCls}">
+      ${layerHtml}
+      <span class="card-count-badge">${p.n_cards}</span>
+    </div>
+    <div class="${nameCls}">${shortName}</div>
+    ${roleTag}
+  `;
+}
+
+function renderTurnStrip(state) {
+  const strip = document.getElementById('turn-strip');
+  strip.innerHTML = '<span class="strip-label">Turn order:</span>';
+
+  // Sort by id (= turn order)
+  const ordered = [...state.players].sort((a, b) => a.id - b.id);
+
+  ordered.forEach((p, i) => {
+    const chip = document.createElement('span');
+    let cls = 'strip-chip';
+    if (!p.is_playing) cls += ' dead';
+    else if (p.is_current) cls += ' current';
+    else if (p.is_prev)    cls += ' prev';
+    else if (p.is_human)   cls += ' human';
+    chip.className = cls;
+    chip.textContent = `${p.display_name}  ${p.n_cards}`;
+    strip.appendChild(chip);
+
+    if (i < ordered.length - 1 && p.is_playing) {
+      const arrow = document.createElement('span');
+      arrow.className = 'strip-arrow';
+      arrow.textContent = '›';
+      strip.appendChild(arrow);
+    }
+  });
+}
+
+function renderHandCards(state) {
+  const hand  = state.hand;
+  const label = document.getElementById('hand-label');
+  const area  = document.getElementById('hand-cards');
+
+  label.textContent = `Your hand (${hand.length} cards)`;
+  area.innerHTML = '';
+
+  if (hand.length === 0) {
+    area.innerHTML = '<span style="color:var(--gray);font-size:14px;align-self:center;">No cards!</span>';
+    return;
+  }
+
+  hand.forEach((v, i) => {
+    const card = document.createElement('div');
+    const col  = cardColorClass(v);
+    const sel  = selectedCards.includes(i);
+    card.className = 'card' + (sel ? ' selected' : '');
+    card.innerHTML = `
+      <span class="card-rank top-left ${col}">${cn(v)}</span>
+      <span class="card-rank center ${col}">${cn(v)}</span>
+      <span class="card-rank bot-right ${col}">${cn(v)}</span>
+    `;
+    card.onclick = () => toggleCard(i);
+    area.appendChild(card);
+  });
+}
+
+function updateActionBar(state) {
+  const isFirst    = state.is_first_hand;
+  const isMyTurn   = state.players.find(p => p.is_human)?.is_current ?? false;
+  const hasCards   = selectedCards.length > 0;
+
+  const doubtBtn = document.getElementById('btn-doubt');
+  const playBtn  = document.getElementById('btn-play');
+  const hint     = document.getElementById('hint-text');
+
+  const canDoubt = isMyTurn && !isFirst && !isLoading;
+  const canPlay  = isMyTurn && hasCards && !isLoading;
+
+  doubtBtn.disabled = !canDoubt;
+  playBtn.disabled  = !canPlay;
+
+  if (!isMyTurn) {
+    hint.textContent = 'Waiting for bots…';
+  } else if (selectedCards.length === 0) {
+    hint.textContent = isFirst
+      ? 'Select up to 3 cards then PLAY to declare a number'
+      : 'Select up to 3 cards, then PLAY — or DOUBT the player marked DOUBT?';
+  } else if (isFirst) {
+    hint.textContent = `${selectedCards.length} selected — PLAY to pick a number for this round`;
+  } else {
+    hint.textContent = `${selectedCards.length} card${selectedCards.length > 1 ? 's' : ''} selected`;
+  }
+}
+
+function renderLog(state) {
+  _showLogMessages(state.messages);
+}
+
+// ── renderGameOver ────────────────────────────────────────────────────────────
+function renderGameOver(state) {
+  showScreen('gameover');
+  renderStatsBox(recordGameResult(state));
+
+  const isHumanWinner = state.standings.length > 0 && state.standings[0].is_human;
+  const tiedOut = state.timed_out;
+
+  const hero  = document.getElementById('gameover-hero');
+  const title = document.getElementById('gameover-title');
+
+  if (tiedOut) {
+    hero.className   = 'gameover-hero';
+    title.className  = 'gameover-title draw';
+    title.textContent = "Time's up - draw!";
+  } else if (isHumanWinner) {
+    hero.className   = 'gameover-hero';
+    title.className  = 'gameover-title win';
+    title.textContent = 'You Won! 🎉';
+  } else {
+    const winner = state.standings[0]?.name ?? '?';
+    hero.className   = 'gameover-hero lose';
+    title.className  = 'gameover-title lose';
+    title.textContent = `${winner} wins!`;
+  }
+
+  const rowsEl = document.getElementById('standings-rows');
+  rowsEl.innerHTML = '';
+  state.standings.forEach((entry, i) => {
+    const row = document.createElement('div');
+    row.className = 'standing-row';
+    const botLabel = (!entry.is_human && entry.bot_type && entry.bot_type !== entry.name)
+      ? `<span class="standing-bot-type">${entry.bot_type}</span>`
+      : '';
+    row.innerHTML = `
+      <span class="standing-pos">${ordinal(i + 1)}</span>
+      <span class="standing-name${entry.is_human ? ' you' : ''}">
+        <span class="sname">${entry.name}</span>${botLabel}
+      </span>
+      <span class="standing-cards">${entry.cards} card${entry.cards !== 1 ? 's' : ''}</span>
+    `;
+    rowsEl.appendChild(row);
+  });
+}
+
+// ── Career statistics (localStorage) ─────────────────────────────────────────
+
+const STATS_KEY = 'dubito_stats';
+const STATS_DEFAULT = { games: 0, wins: 0, totalCards: 0, streak: 0, bestStreak: 0 };
+
+function loadStats() {
+  try { return { ...STATS_DEFAULT, ...JSON.parse(localStorage.getItem(STATS_KEY) || '{}') }; }
+  catch { return { ...STATS_DEFAULT }; }
+}
+
+function saveStats(s) {
+  localStorage.setItem(STATS_KEY, JSON.stringify(s));
+}
+
+function resetStats() {
+  if (!confirm('Reset all career stats?')) return;
+  localStorage.removeItem(STATS_KEY);
+  renderStatsBox(loadStats());
+}
+
+function recordGameResult(state) {
+  const s = loadStats();
+  const isWin = !state.timed_out && state.standings[0]?.is_human;
+  const human = state.standings.find(e => e.is_human);
+  s.games++;
+  s.totalCards += (human?.cards ?? 0);
+  if (isWin) {
+    s.wins++;
+    s.streak = (s.streak > 0 ? s.streak : 0) + 1;
+    s.bestStreak = Math.max(s.bestStreak, s.streak);
+  } else {
+    s.streak = (s.streak < 0 ? s.streak : 0) - 1;
+  }
+  saveStats(s);
+  return s;
+}
+
+function renderStatsBox(s) {
+  const winPct  = s.games > 0 ? Math.round(s.wins / s.games * 100) : 0;
+  const avgCards = s.games > 0 ? (s.totalCards / s.games).toFixed(1) : '—';
+  const streakVal = s.streak > 0
+    ? `+${s.streak}` : s.streak < 0 ? `${s.streak}` : '0';
+  const streakColor = s.streak > 0 ? 'green' : s.streak < 0 ? '' : 'cyan';
+
+  document.getElementById('stats-box').innerHTML = `
+    <div class="stats-title">
+      <span>Your Career</span>
+      <button class="stats-reset-btn" onclick="resetStats()">Reset</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <div class="stat-value">${s.games}</div>
+        <div class="stat-label">Games</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value green">${winPct}%</div>
+        <div class="stat-label">Win rate</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">${avgCards}</div>
+        <div class="stat-label">Avg cards</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value ${streakColor}">${streakVal}</div>
+        <div class="stat-label">Streak</div>
+      </div>
+    </div>`;
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+initSetup().catch(console.error);
+</script>
+</body>
+</html>

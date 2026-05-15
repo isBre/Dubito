@@ -1,4 +1,4 @@
-n_experiments: 1_000_000
+n_experiments: 100_000
 available_players: [3, 4, 5, 6, 7]
 output_file: all_games.yaml
 run_graphs: true
@@ -15,3 +15,7 @@ bots:
   - SusBoi
   - UsualBot
   - RiskCounter
+  - ClaudeBot
+  - ChatGPTBot
+  - ChatGPT_thinking
+  - GeminiBot

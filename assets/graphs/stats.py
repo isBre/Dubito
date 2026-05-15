@@ -95,5 +95,44 @@ for player in players:
     plt.tight_layout()
     plt.savefig(f'assets/graphs/{player}_win_rate_comparison.png')
 
+# Step 5: Heatmaps — win rate of current bot vs prev/next bot
+players = list(data.keys())
+
+def build_heatmap_matrix(position: str) -> np.ndarray:
+    """Build an (n x n) matrix where cell [i,j] = win rate of players[i] when players[j] is in `position`."""
+    n = len(players)
+    matrix = np.full((n, n), np.nan)
+    for i, current in enumerate(players):
+        for j, neighbour in enumerate(players):
+            wins  = data[current]['wins'][position].get(neighbour, 0)
+            total = data[current]['total'][position].get(neighbour, 0)
+            if total > 0:
+                matrix[i, j] = wins / total
+    return matrix
+
+for position, title_neighbour in [('prev', 'Prev'), ('next', 'Next')]:
+    matrix = build_heatmap_matrix(position)
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+    im = ax.imshow(matrix, vmin=0, vmax=1, cmap='RdYlGn', aspect='auto')
+    plt.colorbar(im, ax=ax, label='Win Rate')
+
+    ax.set_xticks(range(len(players)))
+    ax.set_yticks(range(len(players)))
+    ax.set_xticklabels(players, rotation=45, ha='right')
+    ax.set_yticklabels(players)
+    ax.set_xlabel(f'{title_neighbour} Player')
+    ax.set_ylabel('Current Player')
+    ax.set_title(f'Win Rate of Current Player given {title_neighbour} Player')
+
+    # Annotate each cell with the win rate value
+    for i in range(len(players)):
+        for j in range(len(players)):
+            if not np.isnan(matrix[i, j]):
+                ax.text(j, i, f'{matrix[i, j]:.2f}', ha='center', va='center', fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(f'assets/graphs/heatmap_{position}.png')
+
 # Close all figures to avoid memory leaks
 plt.close('all')
