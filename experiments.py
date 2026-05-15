@@ -4,8 +4,8 @@ from tqdm import tqdm
 import random
 import yaml
 import copy
-import subprocess
 import sys
+import datetime
 from bots import rule_based, probability, claude as claude_bots, chatgpt as chatgpt_bots, gemini as gemini_bots
 
 
@@ -69,6 +69,14 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
         'prev': {alg: 0 for alg in players_alg},
         'next': {alg: 0 for alg in players_alg},
         'avg_cards': 0.0,
+        # per-turn behaviour counters
+        'bluffs': 0,
+        'bluff_caught': 0,
+        'doubts': 0,
+        'successful_doubts': 0,
+        'cards_played': 0,
+        'play_turns': 0,
+        'not_first_turns': 0,
     }
 
     final_infos = {
@@ -87,7 +95,8 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
             for i in range(1, player_number + 1)
         ]
 
-        results, _ = dubito(all_players)
+        results, game_infos = dubito(all_players)
+        stats = game_infos['stats'].data
         n = len(all_players)
 
         for idx, p in enumerate(all_players):
@@ -95,12 +104,21 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
             outcome = 'wins' if p in results['winners'] else 'losses'
             prev_name = all_players[(idx - 1) % n].__class__.__name__
             next_name = all_players[(idx + 1) % n].__class__.__name__
+            s = stats[p.id]
 
             for bucket in ('total', outcome):
-                final_infos[name][bucket]['games'] += 1
-                final_infos[name][bucket]['prev'][prev_name] += 1
-                final_infos[name][bucket]['next'][next_name] += 1
-                final_infos[name][bucket]['avg_cards'] += len(p.cards)
+                b = final_infos[name][bucket]
+                b['games'] += 1
+                b['prev'][prev_name] += 1
+                b['next'][next_name] += 1
+                b['avg_cards'] += len(p.cards)
+                b['bluffs'] += s['bluffs']
+                b['bluff_caught'] += s['dishonest_times']
+                b['doubts'] += s['doubts']
+                b['successful_doubts'] += s['successful_doubts']
+                b['cards_played'] += s['total_cards_played']
+                b['play_turns'] += s['play_turns']
+                b['not_first_turns'] += s['not_first_turns']
 
     for alg in players_alg:
         for bucket in ('total', 'wins', 'losses'):
@@ -111,6 +129,447 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
     return final_infos
 
 
+# ── HTML report ────────────────────────────────────────────────────────────────
+
+def _win_rate(info: dict) -> float:
+    total = info['total']['games']
+    return info['wins']['games'] / total if total > 0 else 0.0
+
+
+def _neighbor_win_rates(bot: str, data: dict, position: str) -> dict[str, float]:
+    """Win rate of `bot` for each possible neighbor at `position` (prev/next)."""
+    rates = {}
+    for neighbor in data[bot]['total'][position]:
+        if neighbor == bot:
+            continue
+        wins  = data[bot]['wins'][position].get(neighbor, 0)
+        total = data[bot]['total'][position].get(neighbor, 0)
+        if total > 0:
+            rates[neighbor] = wins / total
+    return rates
+
+
+def _build_heatmap_matrix(data: dict, players: list[str], position: str):
+    import numpy as np
+    n = len(players)
+    matrix = [[None] * n for _ in range(n)]
+    text   = [[''] * n for _ in range(n)]
+    for i, current in enumerate(players):
+        for j, neighbour in enumerate(players):
+            wins  = data[current]['wins'][position].get(neighbour, 0)
+            total = data[current]['total'][position].get(neighbour, 0)
+            if total > 0:
+                v = wins / total
+                matrix[i][j] = round(v, 3)
+                text[i][j]   = f'{v:.2f}'
+    return matrix, text
+
+
+def generate_html_report(final_infos: dict, config: dict, output_path: str = 'report.html') -> None:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    players = sorted(final_infos.keys(), key=lambda b: _win_rate(final_infos[b]), reverse=True)
+    n_bots  = len(players)
+    baseline = 1.0 / n_bots
+
+    # ── colour palette (one colour per bot, consistent everywhere) ─────────────
+    palette = [
+        '#4C78A8', '#F58518', '#E45756', '#72B7B2', '#54A24B',
+        '#EECA3B', '#B279A2', '#FF9DA7', '#9D755D', '#BAB0AC',
+        '#FF7F0E', '#2CA02C', '#D62728', '#9467BD',
+    ]
+    bot_colour = {b: palette[i % len(palette)] for i, b in enumerate(players)}
+
+    win_rates   = [_win_rate(final_infos[b]) for b in players]
+    total_games = [final_infos[b]['total']['games'] for b in players]
+    win_games   = [final_infos[b]['wins']['games']  for b in players]
+    avg_total   = [final_infos[b]['total']['avg_cards'] for b in players]
+    avg_wins    = [final_infos[b]['wins']['avg_cards']  for b in players]
+    avg_losses  = [final_infos[b]['losses']['avg_cards'] for b in players]
+
+    # ── chart 1: win rate bar ──────────────────────────────────────────────────
+    fig_wr = go.Figure()
+    fig_wr.add_trace(go.Bar(
+        x=players, y=win_rates,
+        marker_color=[bot_colour[b] for b in players],
+        text=[f'{v:.1%}' for v in win_rates],
+        textposition='outside',
+        hovertemplate='<b>%{x}</b><br>Win rate: %{y:.2%}<extra></extra>',
+    ))
+    fig_wr.add_hline(y=baseline, line_dash='dot', line_color='crimson',
+                     annotation_text=f'Baseline ({baseline:.1%})',
+                     annotation_position='top right')
+    fig_wr.update_layout(
+        title='Win Rate by Bot', yaxis_title='Win Rate',
+        yaxis_tickformat='.0%', yaxis_range=[0, max(win_rates) * 1.15],
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif',
+        margin=dict(t=60, b=80),
+    )
+    fig_wr.update_xaxes(tickangle=-35)
+
+    # ── chart 2: avg cards grouped bar ────────────────────────────────────────
+    fig_cards = go.Figure()
+    for label, vals, opacity in [('Total', avg_total, 1.0), ('On wins', avg_wins, 0.75), ('On losses', avg_losses, 0.5)]:
+        fig_cards.add_trace(go.Bar(
+            name=label, x=players, y=vals,
+            marker_color=[bot_colour[b] for b in players],
+            marker_opacity=opacity,
+            text=[f'{v:.2f}' for v in vals],
+            textposition='outside',
+            hovertemplate=f'<b>%{{x}}</b><br>{label}: %{{y:.2f}} cards<extra></extra>',
+        ))
+    fig_cards.update_layout(
+        barmode='group', title='Average Cards in Hand',
+        yaxis_title='Avg cards',
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif',
+        margin=dict(t=60, b=80),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig_cards.update_xaxes(tickangle=-35)
+
+    # ── chart 3 & 4: heatmaps ─────────────────────────────────────────────────
+    def _heatmap_fig(position: str, title: str) -> go.Figure:
+        matrix, text = _build_heatmap_matrix(final_infos, players, position)
+        fig = go.Figure(go.Heatmap(
+            z=matrix, x=players, y=players,
+            text=text, texttemplate='%{text}',
+            colorscale='RdYlGn', zmin=0, zmax=1,
+            colorbar=dict(title='Win rate'),
+            hovertemplate=f'<b>%{{y}}</b> vs <b>%{{x}}</b> as {position}<br>Win rate: %{{z:.2f}}<extra></extra>',
+        ))
+        fig.update_layout(
+            title=title,
+            xaxis_title=f'{position.capitalize()} player',
+            yaxis_title='Current player',
+            plot_bgcolor='white', paper_bgcolor='white',
+            font_family='Inter, sans-serif',
+            margin=dict(t=60, b=100, l=100),
+        )
+        fig.update_xaxes(tickangle=-45)
+        return fig
+
+    fig_hm_prev = _heatmap_fig('prev', 'Win Rate given Prev Neighbor')
+    fig_hm_next = _heatmap_fig('next', 'Win Rate given Next Neighbor')
+
+    # ── chart 5: radar / spider chart ─────────────────────────────────────────
+    def _safe(num, den, fallback=0.0) -> float:
+        return num / den if den > 0 else fallback
+
+    def _radar_axes(bot: str) -> dict[str, float]:
+        t = final_infos[bot]['total']
+        return {
+            'Win Rate':        _win_rate(final_infos[bot]),
+            'Bluff Rate':      _safe(t['bluffs'], t['play_turns']),
+            'Bluff Stealth':   _safe(t['bluffs'] - t['bluff_caught'], t['bluffs']),
+            'Doubt Rate':      _safe(t['doubts'], t['not_first_turns']),
+            'Doubt Accuracy':  _safe(t['successful_doubts'], t['doubts']),
+            'Cards per Turn':  _safe(t['cards_played'], t['play_turns']),
+        }
+
+    axes_raw = {b: _radar_axes(b) for b in players}
+
+    # Normalize "Cards per Turn" to [0,1] so all axes share the same scale.
+    max_cpt = max((axes_raw[b]['Cards per Turn'] for b in players), default=1) or 1
+    for b in players:
+        axes_raw[b]['Cards per Turn'] /= max_cpt
+
+    axis_labels = ['Win Rate', 'Bluff Rate', 'Bluff Stealth',
+                   'Doubt Rate', 'Doubt Accuracy', 'Cards per Turn']
+    axis_labels_closed = axis_labels + [axis_labels[0]]  # close the polygon
+
+    fig_radar = go.Figure()
+    for bot in players:
+        vals = [axes_raw[bot][a] for a in axis_labels]
+        vals_closed = vals + [vals[0]]
+        fig_radar.add_trace(go.Scatterpolar(
+            r=vals_closed,
+            theta=axis_labels_closed,
+            name=bot,
+            line_color=bot_colour[bot],
+            fill='toself',
+            fillcolor=bot_colour[bot],
+            opacity=0.15,
+            hovertemplate=(
+                f'<b>{bot}</b><br>'
+                + '<br>'.join(f'{a}: %{{r[{i}]:.2f}}' for i, a in enumerate(axis_labels))
+                + '<extra></extra>'
+            ),
+        ))
+    fig_radar.update_layout(
+        title='Bot Behaviour Radar (click legend to toggle)',
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 1], tickformat='.0%'),
+            angularaxis=dict(tickfont=dict(size=12)),
+        ),
+        showlegend=True,
+        legend=dict(orientation='v', x=1.05, y=0.5),
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif',
+        margin=dict(t=60, b=40, l=60, r=180),
+        height=560,
+    )
+
+    # ── per-bot neighbor charts ────────────────────────────────────────────────
+    def _neighbor_fig(bot: str, position: str) -> go.Figure:
+        rates = _neighbor_win_rates(bot, final_infos, position)
+        nbrs  = sorted(rates, key=lambda x: rates[x], reverse=True)
+        vals  = [rates[n] for n in nbrs]
+        colours = [bot_colour.get(n, '#888') for n in nbrs]
+        fig = go.Figure(go.Bar(
+            x=nbrs, y=vals,
+            marker_color=colours,
+            text=[f'{v:.1%}' for v in vals],
+            textposition='outside',
+            hovertemplate=f'<b>%{{x}}</b> as {position} neighbor<br>Win rate: %{{y:.2%}}<extra></extra>',
+        ))
+        fig.add_hline(y=0.5, line_dash='dot', line_color='grey')
+        fig.update_layout(
+            title=f'{position.capitalize()} neighbor',
+            yaxis_title='Win rate', yaxis_tickformat='.0%',
+            yaxis_range=[0, max(vals, default=0.5) * 1.2 + 0.05],
+            plot_bgcolor='white', paper_bgcolor='white',
+            font_family='Inter, sans-serif',
+            margin=dict(t=50, b=70),
+            height=300,
+        )
+        fig.update_xaxes(tickangle=-35)
+        return fig
+
+    # ── helpers to turn figures into embeddable divs ───────────────────────────
+    def _div(fig: go.Figure, div_id: str = '', height: str = '420px') -> str:
+        kwargs = dict(full_html=False, include_plotlyjs=False, config={'responsive': True})
+        if div_id:
+            kwargs['div_id'] = div_id
+        html = fig.to_html(**kwargs)
+        # wrap in a sized container
+        return f'<div style="width:100%;height:{height};">{html}</div>'
+
+    # ── summary table rows ─────────────────────────────────────────────────────
+    table_rows = ''
+    for rank, bot in enumerate(players, 1):
+        info   = final_infos[bot]
+        wr     = _win_rate(info)
+        colour = bot_colour[bot]
+        badge  = f'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{colour};margin-right:6px;"></span>'
+        table_rows += f'''
+        <tr>
+          <td class="text-center text-muted">{rank}</td>
+          <td><a href="#{bot}" class="text-decoration-none fw-semibold">{badge}{bot}</a></td>
+          <td class="text-end">{info["total"]["games"]:,}</td>
+          <td class="text-end">{info["wins"]["games"]:,}</td>
+          <td class="text-end fw-bold" style="color:{colour}">{wr:.1%}</td>
+          <td class="text-end">{info["total"]["avg_cards"]:.2f}</td>
+          <td class="text-end text-success">{info["wins"]["avg_cards"]:.2f}</td>
+          <td class="text-end text-danger">{info["losses"]["avg_cards"]:.2f}</td>
+        </tr>'''
+
+    # ── per-bot section HTML ───────────────────────────────────────────────────
+    bot_sections = ''
+    for bot in players:
+        info   = final_infos[bot]
+        wr     = _win_rate(info)
+        colour = bot_colour[bot]
+        rank   = players.index(bot) + 1
+        prev_div = _div(_neighbor_fig(bot, 'prev'), height='320px')
+        next_div = _div(_neighbor_fig(bot, 'next'), height='320px')
+
+        win_pct_bar = int(wr * 100)
+        bot_sections += f'''
+    <div class="card mb-4 shadow-sm" id="{bot}">
+      <div class="card-header d-flex align-items-center gap-2" style="background:{colour}20;border-left:4px solid {colour};">
+        <span style="font-size:1.1rem;font-weight:700;color:{colour};">#{rank}</span>
+        <h5 class="mb-0 ms-1">{bot}</h5>
+        <span class="ms-auto badge" style="background:{colour};font-size:0.95rem;">{wr:.1%} win rate</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value">{info["total"]["games"]:,}</div>
+              <div class="stat-label">Total games</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value" style="color:{colour};">{wr:.1%}</div>
+              <div class="stat-label">Win rate</div>
+              <div class="progress mt-1" style="height:4px;">
+                <div class="progress-bar" style="width:{win_pct_bar}%;background:{colour};"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-success">{info["wins"]["avg_cards"]:.2f}</div>
+              <div class="stat-label">Avg cards on win</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-card">
+              <div class="stat-value text-danger">{info["losses"]["avg_cards"]:.2f}</div>
+              <div class="stat-label">Avg cards on loss</div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">{prev_div}</div>
+          <div class="col-md-6">{next_div}</div>
+        </div>
+      </div>
+    </div>'''
+
+    # ── experiment config string ───────────────────────────────────────────────
+    n_exp       = config.get('n_experiments', '?')
+    ap          = config.get('available_players', [])
+    ap_str      = f'{ap[0]}–{ap[-1]}' if ap else '?'
+    bot_names   = config.get('bots', list(final_infos.keys()))
+    generated   = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+
+    # ── assemble full HTML ─────────────────────────────────────────────────────
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dubito Experiment Report</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    body {{ font-family: "Inter", system-ui, sans-serif; background:#f8f9fa; }}
+    .navbar-brand {{ font-weight: 700; letter-spacing: .5px; }}
+    section {{ scroll-margin-top: 70px; }}
+    .stat-card {{
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 12px 16px;
+      text-align: center;
+    }}
+    .stat-value {{ font-size: 1.4rem; font-weight: 700; }}
+    .stat-label {{ font-size: .75rem; color: #6c757d; text-transform: uppercase; letter-spacing: .5px; }}
+    .chart-card {{
+      background: #fff;
+      border: 1px solid #e9ecef;
+      border-radius: 10px;
+      padding: 16px;
+    }}
+    table thead th {{ background: #343a40; color: #fff; white-space: nowrap; }}
+    .section-title {{
+      font-size: 1.4rem; font-weight: 700;
+      border-left: 4px solid #4C78A8;
+      padding-left: 12px;
+      margin-bottom: 1rem;
+    }}
+    .config-badge {{
+      display: inline-block;
+      background: #e9ecef;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: .85rem;
+      font-weight: 600;
+      margin: 2px;
+    }}
+    a[href^="#"] {{ color: inherit; }}
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-dark bg-dark sticky-top px-4">
+  <span class="navbar-brand">🎴 Dubito Experiment Report</span>
+  <span class="text-white-50 small">Generated {generated}</span>
+</nav>
+
+<div class="container-lg py-4">
+
+  <!-- Config banner -->
+  <div class="alert alert-dark mb-4">
+    <strong>Experiment config:</strong>&nbsp;
+    <span class="config-badge">🎲 {n_exp:,} games</span>
+    <span class="config-badge">👥 {ap_str} players/game</span>
+    <span class="config-badge">🤖 {n_bots} bots</span>
+  </div>
+
+  <!-- Overview table -->
+  <section id="overview" class="mb-5">
+    <div class="section-title">Overview</div>
+    <div class="table-responsive">
+      <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm">
+        <thead>
+          <tr>
+            <th class="text-center">#</th>
+            <th>Bot</th>
+            <th class="text-end">Total games</th>
+            <th class="text-end">Wins</th>
+            <th class="text-end">Win %</th>
+            <th class="text-end">Avg cards</th>
+            <th class="text-end">Avg on win</th>
+            <th class="text-end">Avg on loss</th>
+          </tr>
+        </thead>
+        <tbody>{table_rows}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Global charts -->
+  <section id="global" class="mb-5">
+    <div class="section-title">Global Charts</div>
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="chart-card">{_div(fig_wr, height='440px')}</div>
+      </div>
+      <div class="col-12">
+        <div class="chart-card">{_div(fig_cards, height='440px')}</div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_hm_prev, height='520px')}</div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_hm_next, height='520px')}</div>
+      </div>
+      <div class="col-12">
+        <div class="chart-card">
+          {_div(fig_radar, height='580px')}
+          <p class="text-muted small mt-1 mb-0 text-center">
+            All axes normalized to [0–1].
+            <b>Bluff Rate</b>: dishonest plays / total play turns.
+            <b>Bluff Stealth</b>: uncaught bluffs / total bluffs.
+            <b>Doubt Rate</b>: doubts / eligible turns.
+            <b>Doubt Accuracy</b>: successful doubts / total doubts.
+            <b>Cards per Turn</b>: avg cards placed per play turn (normalized by max).
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Per-bot sections -->
+  <section id="bots" class="mb-5">
+    <div class="section-title">Per-Bot Breakdown</div>
+    {bot_sections}
+  </section>
+
+</div>
+
+<footer class="text-center text-muted py-3 border-top small">
+  Dubito Experiment Report &mdash; {generated}
+</footer>
+
+</body>
+</html>'''
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+    print(f'HTML report saved to {output_path}')
+
+
+# ── entry point ────────────────────────────────────────────────────────────────
+
 if __name__ == '__main__':
     config_path = sys.argv[1] if len(sys.argv) > 1 else 'experiment.yaml'
     config = load_config(config_path)
@@ -120,7 +579,7 @@ if __name__ == '__main__':
     available_players = config['available_players']
     n_experiments = config['n_experiments']
     output_file = config.get('output_file', 'all_games.yaml')
-    run_graphs = config.get('run_graphs', False)
+    output_html = config.get('output_html', 'report.html')
 
     print(f"Running {n_experiments:,} games with {len(algorithms)} bots "
           f"and {available_players[0]}–{available_players[-1]} players per game.")
@@ -132,7 +591,5 @@ if __name__ == '__main__':
 
     print_summary(final_infos)
 
-    if run_graphs:
-        print('\nGenerating graphs...')
-        subprocess.run([sys.executable, 'assets/graphs/stats.py'], check=True)
-        print('Graphs updated.')
+    print('\nGenerating HTML report...')
+    generate_html_report(final_infos, config, output_html)

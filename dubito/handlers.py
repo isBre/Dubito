@@ -163,11 +163,15 @@ class StatsHandler:
         self.data = {}
         for p in all_players:
             self.data[p.id] = {
-                'turns': 0,  # How many turns the player played
-                'not_first_turns': 0,  # How many turns the player played (not first hand)
-                'doubts': 0,  # Number of times the player doubted
-                'honest_times': 0,  # Number of times recorded that this player was honest when doubted
-                'dishonest_times': 0,  # number of times recorded that this player was dishonest when doubted
+                'turns': 0,
+                'not_first_turns': 0,
+                'doubts': 0,
+                'honest_times': 0,
+                'dishonest_times': 0,
+                'bluffs': 0,            # times player placed dishonest cards
+                'successful_doubts': 0, # times player's doubt was correct
+                'total_cards_played': 0,# total cards placed on board
+                'play_turns': 0,        # turns where player placed cards (not doubted)
             }
             
     def increase_turns_played(self, player : Player, first_hand : bool) -> None:
@@ -183,6 +187,16 @@ class StatsHandler:
     
     def increase_player_dishonesty(self, player : Player) -> None:
         self.data[player.id]['dishonest_times'] += 1
+
+    def increase_player_bluffs(self, player: Player) -> None:
+        self.data[player.id]['bluffs'] += 1
+
+    def increase_player_successful_doubts(self, player: Player) -> None:
+        self.data[player.id]['successful_doubts'] += 1
+
+    def add_player_cards_played(self, player: Player, n: int) -> None:
+        self.data[player.id]['total_cards_played'] += n
+        self.data[player.id]['play_turns'] += 1
 
 
 def generate_player_data(game_handler: GameHandler, stats_handler: StatsHandler) -> TurnData:

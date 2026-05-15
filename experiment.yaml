@@ -1,7 +1,7 @@
 n_experiments: 100_000
 available_players: [3, 4, 5, 6, 7]
 output_file: all_games.yaml
-run_graphs: true
+output_html: report.html
 
 # Comment out any bot to exclude it from the experiment
 bots:
