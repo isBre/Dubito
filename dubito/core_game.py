@@ -164,8 +164,9 @@ def dubito(
             declared_snap = game_handler.get_current_number()
 
             jokers_played = game_handler.jokers_in_latest()
-            if jokers_played:
-                # Joker protection: jokers are discarded, remaining board cards go to the doubter
+            if game_handler.is_honest() and jokers_played:
+                # Joker protection: play was honest (joker ± matching cards).
+                # Jokers are discarded; remaining board cards go to the doubter.
                 board_cards = list(game_handler.get_board())
                 for j in jokers_played:
                     board_cards.remove(j)

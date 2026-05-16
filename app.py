@@ -126,7 +126,10 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
         latest_cards = list(gh.get_latest_played_cards())
         revealed = ', '.join(cn(c) for c in latest_cards)
         jokers = gh.jokers_in_latest()
-        if jokers:
+        # Grammar: "You take" vs "Bot X takes"
+        takes = "take" if isinstance(this_player, HumanPlayer) else "takes"
+        if gh.is_honest() and jokers:
+            # Joker protection — only when play is otherwise valid (joker ± matching cards)
             rest = [c for c in gh.get_board() if c != 0]
             this_player.add_cards(rest)
             sh.increase_player_honesty(prev_player)
@@ -134,7 +137,7 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
             resolve_events.append({
                 "msg": (
                     f"Joker! {_lbl(game, prev_player)} played [{revealed}] — protected. "
-                    f"{_lbl(game, this_player)} takes {len(rest)} card(s)."
+                    f"{_lbl(game, this_player)} {takes} {len(rest)} card(s)."
                 ),
                 "event_type": "joker",
                 "actor_id": this_player.id,
