@@ -141,11 +141,19 @@ class GameHandler:
     def set_discarded_cards(self, discarded : list[int]) -> None:
         self.board.availables = [x for x in self.board.availables if x not in discarded]
         
-    def set_winners(self, winner : Player) -> None:
+    def set_winners(self, winner: Player) -> None:
         self.players.winners.append(winner)
         self.players.playing.remove(winner)
-        # Edge Case, I update this_player position in case of winning
-        self.turn.position = self.players.playing.index(self.players.this)
+        if not self.players.playing:
+            return
+        # Choose the anchor player whose position we track for the next next_turn() call.
+        # - winner was prev: anchor on this (they'll be the new "prev" next turn)
+        # - winner was this: anchor on prev (so the next player advances from prev's slot)
+        anchor = self.players.prev if winner is self.players.this else self.players.this
+        if anchor in self.players.playing:
+            self.turn.position = self.players.playing.index(anchor)
+        else:
+            self.turn.position = 0
         
     def get_winners(self) -> list[Player]:
         return self.players.winners

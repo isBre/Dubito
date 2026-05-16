@@ -14,8 +14,8 @@ from dubito.player import Player
 from dubito.handlers import GameHandler, StatsHandler, generate_player_data
 from dubito.game_data import TurnOutput, TurnData
 from dubito.core_game import initialize
-from bots import rule_based, probability
-from bots import claude as claude_bots
+from bots.manual import rule_based, probability
+from bots.llms import claude as claude_bots
 
 app = Flask(__name__)
 

@@ -2,7 +2,7 @@ import unittest
 from dubito.hand import Hand
 from dubito.handlers import GameHandler, StatsHandler, generate_player_data
 from dubito.core_game import create_deck, assign_cards, initialize, dubito
-from bots.rule_based import AlwaysTruthful, MrDoubt, MrNoDoubt, RandomBoi
+from bots.manual.rule_based import AlwaysTruthful, MrDoubt, MrNoDoubt, RandomBoi
 
 
 # ---------------------------------------------------------------------------
@@ -533,6 +533,138 @@ class TestStatsTracking(unittest.TestCase):
         for p in players:
             s = stats[p.id]
             self.assertGreaterEqual(s['total_cards_played'], s['play_turns'])
+
+
+# ---------------------------------------------------------------------------
+# Turn order after a player wins (soft win)
+# ---------------------------------------------------------------------------
+
+class TestTurnOrderAfterWin(unittest.TestCase):
+    """
+    Verify that when a player is eliminated mid-game the remaining players
+    cycle correctly and the winner never appears as prev or this again.
+
+    Initial turn.position = len(players)-1 = 3, so next_turn() calls produce:
+      call #1 → prev=p3, this=p0
+      call #2 → prev=p0, this=p1
+      call #3 → prev=p1, this=p2   ← p2 is "this"  (bot3 in user scenario)
+      call #4 → prev=p2, this=p3   ← p2 is "prev"
+    """
+
+    def _advance(self, gh, n):
+        for _ in range(n):
+            gh.next_turn()
+
+    # ------------------------------------------------------------------
+    # Core scenario: [bot1 bot2 bot3 bot4] → bot3 wins → bot1 bot2 bot4
+    # ------------------------------------------------------------------
+
+    def test_bot3_wins_as_this_player_cycle_is_bot1_bot2_bot4(self):
+        """bot3 wins during their own turn (this_player); remaining cycle: bot1, bot2, bot4."""
+        gh, players = _make_game(n_players=4)
+        # After 3 next_turn() calls: this=players[2] (bot3), prev=players[1]
+        self._advance(gh, 3)
+        self.assertEqual(gh.players.this.id, players[2].id)
+
+        gh.set_winners(players[2])
+        self.assertNotIn(players[2], gh.playing_players())
+
+        seen = set()
+        for _ in range(9):  # 3 remaining players × 3 full cycles
+            _, this = gh.next_turn()
+            seen.add(this.id)
+
+        self.assertNotIn(players[2].id, seen)
+        self.assertEqual(seen, {players[0].id, players[1].id, players[3].id})
+
+    def test_bot3_wins_as_prev_player_cycle_is_bot1_bot2_bot4(self):
+        """bot3 wins at end of their turn (prev_player); remaining cycle: bot1, bot2, bot4."""
+        gh, players = _make_game(n_players=4)
+        # After 4 next_turn() calls: prev=players[2] (bot3), this=players[3]
+        self._advance(gh, 4)
+        self.assertEqual(gh.players.prev.id, players[2].id)
+
+        gh.set_winners(players[2])
+        self.assertNotIn(players[2], gh.playing_players())
+
+        seen = set()
+        for _ in range(9):
+            _, this = gh.next_turn()
+            seen.add(this.id)
+
+        self.assertNotIn(players[2].id, seen)
+        self.assertEqual(seen, {players[0].id, players[1].id, players[3].id})
+
+    # ------------------------------------------------------------------
+    # Winner never appears as prev either
+    # ------------------------------------------------------------------
+
+    def test_winner_never_appears_as_prev_or_this(self):
+        gh, players = _make_game(n_players=4)
+        self._advance(gh, 3)
+        winner = gh.players.this
+
+        gh.set_winners(winner)
+
+        for _ in range(9):
+            prev, this = gh.next_turn()
+            self.assertNotEqual(prev.id, winner.id)
+            self.assertNotEqual(this.id, winner.id)
+
+    # ------------------------------------------------------------------
+    # set_winners() on this_player must not crash
+    # ------------------------------------------------------------------
+
+    def test_set_winners_this_player_does_not_crash(self):
+        gh, players = _make_game(n_players=4)
+        self._advance(gh, 3)
+        this = gh.players.this
+        gh.set_winners(this)  # previously raised ValueError
+        self.assertNotIn(this, gh.playing_players())
+        self.assertIn(this, gh.get_winners())
+
+    # ------------------------------------------------------------------
+    # turn.position stays in-bounds across multiple eliminations
+    # ------------------------------------------------------------------
+
+    def test_position_valid_after_successive_eliminations(self):
+        gh, players = _make_game(n_players=4)
+        self._advance(gh, 2)
+        gh.set_winners(players[1])   # remove p1 while p1 is this
+
+        self._advance(gh, 1)
+        gh.set_winners(players[3])   # remove p3
+
+        # 2 players left; all next_turn() calls must succeed and stay in-bounds
+        for _ in range(4):
+            prev, this = gh.next_turn()
+            self.assertIn(prev, gh.playing_players() + gh.get_winners())
+            self.assertIn(this, gh.playing_players())
+
+    # ------------------------------------------------------------------
+    # Win detection fires for this_player (discard-phase win)
+    # ------------------------------------------------------------------
+
+    def test_win_detection_catches_this_player(self):
+        """set_winners(this_player) reduces playing count — confirms engine can handle it."""
+        gh, players = _make_game(n_players=4)
+        self._advance(gh, 3)
+        this = gh.players.this
+        n_before = gh.n_playing_players()
+        gh.set_winners(this)
+        self.assertEqual(gh.n_playing_players(), n_before - 1)
+
+    # ------------------------------------------------------------------
+    # Regression: correct_doubt renamed to replay_turn
+    # ------------------------------------------------------------------
+
+    def test_no_crash_on_replay_turn_after_soft_win(self):
+        for _ in range(200):
+            result, _ = dubito(
+                all_players=[MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)],
+            )
+            total = len(result['winners']) + len(result['losers'])
+            self.assertEqual(total, 4)
 
 
 if __name__ == '__main__':
