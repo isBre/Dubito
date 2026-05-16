@@ -39,7 +39,7 @@ def save_stats(stats: dict, path: str) -> None:
 
 def print_summary(final_infos: dict) -> None:
     col = 20
-    header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'Avg Cards':>10}"
+    header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'1st%':>8} {'Avg Cards':>10}"
     sep = '=' * len(header)
     print(f'\n{sep}')
     print('Experiment Results')
@@ -51,13 +51,14 @@ def print_summary(final_infos: dict) -> None:
             info['wins']['games'] / info['total']['games'] * 100,
             bot,
             info['total']['games'],
+            info['total']['first_place'] / info['total']['games'] * 100,
             info['total']['avg_cards'],
         )
         for bot, info in final_infos.items()
         if info['total']['games'] > 0
     ]
-    for win_pct, bot, total, avg_cards in sorted(rows, reverse=True):
-        print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {avg_cards:>10.2f}")
+    for win_pct, bot, total, first_pct, avg_cards in sorted(rows, reverse=True):
+        print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {first_pct:>7.1f}% {avg_cards:>10.2f}")
     print(sep)
 
 
@@ -79,6 +80,7 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
         'not_first_turns': 0,
         # relative finish position: 1.0 = 1st, 0.0 = last (normalized across n players)
         'total_position': 0.0,
+        'first_place': 0,   # times this bot finished 1st (first to empty hand)
     }
 
     final_infos = {
@@ -131,6 +133,8 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
                 b['play_turns'] += s['play_turns']
                 b['not_first_turns'] += s['not_first_turns']
                 b['total_position'] += rel_pos
+                if winners and p is winners[0]:
+                    b['first_place'] += 1
 
     for alg in players_alg:
         for bucket in ('total', 'wins', 'losses'):
@@ -188,6 +192,7 @@ def _compute_bot_metrics(bot: str, final_infos: dict) -> dict:
     g = t['games']
     return {
         'win_rate':       _win_rate(final_infos[bot]),
+        'first_place_rate': _safe(t['first_place'], g),
         'avg_position':   t['total_position'],   # 1.0 = always 1st, 0.0 = always last
         'bluff_rate':     _safe(t['bluffs'], t['play_turns']),
         'bluff_stealth':  _safe(t['bluffs'] - t['bluff_caught'], t['bluffs']),
@@ -435,6 +440,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     for rank, bot in enumerate(players, 1):
         info   = final_infos[bot]
         wr     = _win_rate(info)
+        fp     = _safe(info['total']['first_place'], info['total']['games'])
         colour = bot_colour[bot]
         badge  = f'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{colour};margin-right:6px;"></span>'
         table_rows += f'''
@@ -444,6 +450,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
           <td class="text-end">{info["total"]["games"]:,}</td>
           <td class="text-end">{info["wins"]["games"]:,}</td>
           <td class="text-end fw-bold" style="color:{colour}">{wr:.1%}</td>
+          <td class="text-end">{fp:.1%}</td>
           <td class="text-end">{info["total"]["avg_cards"]:.2f}</td>
           <td class="text-end" style="color:{'#198754' if wr >= baseline else '#dc3545'};">{(wr - baseline):+.1%}</td>
           <td class="text-end text-danger">{info["losses"]["avg_cards"]:.2f}</td>
@@ -588,6 +595,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
             <th class="text-end">Total games</th>
             <th class="text-end">Wins</th>
             <th class="text-end">Win %</th>
+            <th class="text-end">1st Place %</th>
             <th class="text-end">Avg cards</th>
             <th class="text-end">vs Baseline</th>
             <th class="text-end">Avg on loss</th>
