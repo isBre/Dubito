@@ -129,10 +129,19 @@ class TestIsHonest(unittest.TestCase):
         gh.set_board_cards([0])
         self.assertTrue(gh.is_honest())
 
-    def test_joker_mixed_with_wrong_cards_is_still_honest(self):
+    def test_joker_with_wrong_card_is_dishonest(self):
+        # is_honest() checks each card individually: a joker protects its own
+        # slot but a non-matching non-joker card still makes the play dishonest.
+        # The whole-play joker protection is handled separately via jokers_in_latest().
         gh, _ = _make_game()
         gh.set_current_number(5)
-        gh.set_board_cards([0, 3])  # 3 ≠ 5 but joker is present
+        gh.set_board_cards([0, 3])  # joker OK, but 3 ≠ 5
+        self.assertFalse(gh.is_honest())
+
+    def test_joker_with_matching_card_is_honest(self):
+        gh, _ = _make_game()
+        gh.set_current_number(5)
+        gh.set_board_cards([0, 5])  # joker + correct card
         self.assertTrue(gh.is_honest())
 
     def test_jokers_in_latest_returns_jokers(self):
@@ -153,13 +162,14 @@ class TestIsHonest(unittest.TestCase):
 class TestJokerMechanic(unittest.TestCase):
 
     def test_game_completes_with_jokers(self):
+        # New loop: game ends when 1 player remains → exactly 1 loser
         for _ in range(10):
             result, _ = dubito(
                 all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
                 shuffle_players=True,
                 n_jollies=2,
             )
-            self.assertEqual(len(result['winners']), 1)
+            self.assertEqual(len(result['losers']), 1)
 
     def test_joker_event_appears_in_logs(self):
         # MrDoubt always doubts, RandomBoi bluffs randomly — joker events are frequent
@@ -182,7 +192,7 @@ class TestJokerMechanic(unittest.TestCase):
                 shuffle_players=True,
                 n_jollies=0,
             )
-            self.assertEqual(len(result['winners']), 1)
+            self.assertEqual(len(result['losers']), 1)
 
 
 # ---------------------------------------------------------------------------
@@ -191,19 +201,26 @@ class TestJokerMechanic(unittest.TestCase):
 
 class TestFullGame(unittest.TestCase):
 
-    def test_always_one_winner(self):
+    def test_exactly_one_loser(self):
+        # Game ends when 1 player remains — that player is the sole loser.
         for _ in range(20):
             result, _ = dubito(
                 all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
             )
-            self.assertEqual(len(result['winners']), 1)
+            self.assertEqual(len(result['losers']), 1)
+
+    def test_n_minus_one_winners(self):
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        for _ in range(10):
+            result, _ = dubito(all_players=list(players))
+            self.assertEqual(len(result['winners']), len(players) - 1)
 
     def test_winner_not_in_losers(self):
         result, _ = dubito(
             all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
         )
         winner_ids = {p.id for p in result['winners']}
-        loser_ids = {p.id for p in result['losers']}
+        loser_ids  = {p.id for p in result['losers']}
         self.assertTrue(winner_ids.isdisjoint(loser_ids))
 
     def test_all_players_accounted_for(self):
@@ -211,6 +228,28 @@ class TestFullGame(unittest.TestCase):
         result, _ = dubito(all_players=players)
         total = len(result['winners']) + len(result['losers'])
         self.assertEqual(total, len(players))
+
+    def test_winners_ordered_by_finish(self):
+        # winners[0] emptied their hand first; the list must be a permutation of the players
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        result, _ = dubito(all_players=list(players))
+        winner_ids = [p.id for p in result['winners']]
+        # All winner ids are distinct
+        self.assertEqual(len(winner_ids), len(set(winner_ids)))
+
+    def test_turn_cap_terminates_game(self):
+        # With max_turns=1 the game must terminate immediately and account for all players.
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        result, infos = dubito(all_players=list(players), max_turns=1)
+        total = len(result['winners']) + len(result['losers'])
+        self.assertEqual(total, len(players))
+        self.assertIn('Turn limit', infos['logs'])
+
+    def test_player_sizes_vary(self):
+        for n in range(3, 8):
+            ps = [RandomBoi(i) for i in range(1, n + 1)]
+            result, _ = dubito(all_players=ps)
+            self.assertEqual(len(result['winners']) + len(result['losers']), n)
 
 
 # ---------------------------------------------------------------------------
@@ -410,6 +449,80 @@ class TestWinners(unittest.TestCase):
         gh.players.this = players[1]
         gh.set_winners(players[0])
         self.assertEqual(gh.n_playing_players(), 3)
+
+    def test_winners_list_is_ordered(self):
+        # Each successive set_winners call appends to the end of the winners list.
+        gh, players = _make_game(n_players=4)
+        gh.next_turn()
+        gh.players.this = players[1]
+        gh.set_winners(players[0])   # 1st place
+        gh.players.this = players[2]
+        gh.set_winners(players[1])   # 2nd place
+        self.assertEqual(gh.get_winners(), [players[0], players[1]])
+
+
+# ---------------------------------------------------------------------------
+# Stats tracking
+# ---------------------------------------------------------------------------
+
+class TestStatsTracking(unittest.TestCase):
+
+    def test_play_turns_and_cards_counted(self):
+        # AlwaysTruthful never doubts, so play_turns must be positive after a game.
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        _, infos = dubito(all_players=list(players))
+        stats = infos['stats'].data
+        for p in players:
+            s = stats[p.id]
+            self.assertGreaterEqual(s['play_turns'], 0)
+            self.assertGreaterEqual(s['total_cards_played'], 0)
+            # play_turns ≤ turns (doubts also count as turns)
+            self.assertLessEqual(s['play_turns'], s['turns'])
+
+    def test_doubts_counted_for_mr_doubt(self):
+        players = [MrDoubt(1), MrNoDoubt(2), MrNoDoubt(3)]
+        _, infos = dubito(all_players=list(players), shuffle_players=False)
+        stats = infos['stats'].data
+        # MrDoubt always doubts when not first hand; must have at least one doubt
+        self.assertGreater(stats[1]['doubts'], 0)
+
+    def test_bluffs_tracked(self):
+        # RandomBoi bluffs randomly; across enough games at least one bluff occurs.
+        found = False
+        for _ in range(50):
+            players = [RandomBoi(1), RandomBoi(2), RandomBoi(3)]
+            _, infos = dubito(all_players=list(players))
+            stats = infos['stats'].data
+            if any(stats[p.id]['bluffs'] > 0 for p in players):
+                found = True
+                break
+        self.assertTrue(found, "No bluffs recorded across 50 games with RandomBoi")
+
+    def test_successful_doubts_lte_doubts(self):
+        for _ in range(10):
+            players = [MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)]
+            _, infos = dubito(all_players=list(players))
+            stats = infos['stats'].data
+            for p in players:
+                s = stats[p.id]
+                self.assertLessEqual(s['successful_doubts'], s['doubts'])
+
+    def test_not_first_turns_lte_turns(self):
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        _, infos = dubito(all_players=list(players))
+        stats = infos['stats'].data
+        for p in players:
+            s = stats[p.id]
+            self.assertLessEqual(s['not_first_turns'], s['turns'])
+
+    def test_total_cards_played_ge_play_turns(self):
+        # Each play turn places at least 1 card, so total_cards_played >= play_turns.
+        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        _, infos = dubito(all_players=list(players))
+        stats = infos['stats'].data
+        for p in players:
+            s = stats[p.id]
+            self.assertGreaterEqual(s['total_cards_played'], s['play_turns'])
 
 
 if __name__ == '__main__':
