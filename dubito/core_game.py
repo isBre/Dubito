@@ -125,7 +125,7 @@ def dubito(
     # When True: doubter caught the bluffer, so the doubter replays without advancing turns.
     replay_turn = False
     
-    while game_handler.n_playing_players() > 1 and game_handler.turn.counter < max_turns:
+    while game_handler.n_playing_players() > 2 and game_handler.turn.counter < max_turns:
         
         # Just print all the cards of all playing players
         logger += f"\n\n------ Turn {game_handler.turn.counter} ------\n"
@@ -164,8 +164,9 @@ def dubito(
             declared_snap = game_handler.get_current_number()
 
             jokers_played = game_handler.jokers_in_latest()
-            if jokers_played:
-                # Joker protection: jokers are discarded, remaining board cards go to the doubter
+            if game_handler.is_honest() and jokers_played:
+                # Joker protection: play was honest (joker ± matching cards).
+                # Jokers are discarded; remaining board cards go to the doubter.
                 board_cards = list(game_handler.get_board())
                 for j in jokers_played:
                     board_cards.remove(j)

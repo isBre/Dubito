@@ -40,8 +40,8 @@ ALL_BOTS: dict[str, type] = {
     "UsualBot":       probability.UsualBot,
     "RiskCounter":    probability.RiskCounter,
     "ClaudeBot":      claude_bots.ClaudeBot,
-    **_try("bots.chatgpt", ["ChatGPTBot", "ChatGPT_thinking"]),
-    **_try("bots.gemini",  ["GeminiBot"]),
+    **_try("bots.llms.chatgpt", ["ChatGPTBot", "ChatGPT_thinking"]),
+    **_try("bots.llms.gemini",  ["GeminiBot"]),
 }
 
 # ── In-memory game store ──────────────────────────────────────────────────────
@@ -66,6 +66,11 @@ class HumanPlayer(Player):
 
     def play(self, p: TurnData) -> TurnOutput:
         raise NotImplementedError("Human player plays via the web UI")
+
+    def add_cards(self, cards: list[int]) -> None:
+        # Append received cards in arrival order — no sorting, so the player
+        # can see exactly which cards they picked up at the end of their hand.
+        self.cards.hand.extend(cards)
 
 
 # ── Game label helper ─────────────────────────────────────────────────────────
@@ -96,7 +101,7 @@ def _snap(game: dict) -> dict:
         "declared_name": cln(gh.board.number) if gh.board.number else None,
         "is_first_hand": gh.is_first_hand(),
         "players_cards": {str(p.id): len(p.cards) for p in all_players},
-        "human_hand": sorted(human.cards.hand),
+        "human_hand": list(human.cards.hand),
     }
 
 
@@ -118,20 +123,26 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
 
     if output.doubt:
         sh.increase_player_doubts(this_player)
+        latest_cards = list(gh.get_latest_played_cards())
+        revealed = ', '.join(cn(c) for c in latest_cards)
         jokers = gh.jokers_in_latest()
-        if jokers:
+        # Grammar: "You take" vs "Bot X takes"
+        takes = "take" if isinstance(this_player, HumanPlayer) else "takes"
+        if gh.is_honest() and jokers:
+            # Joker protection — only when play is otherwise valid (joker ± matching cards)
             rest = [c for c in gh.get_board() if c != 0]
             this_player.add_cards(rest)
             sh.increase_player_honesty(prev_player)
             gh.reset_board()
             resolve_events.append({
                 "msg": (
-                    f"Joker! {_lbl(game, prev_player)} protected. "
-                    f"{_lbl(game, this_player)} takes {len(rest)} card(s)."
+                    f"Joker! {_lbl(game, prev_player)} played [{revealed}] — protected. "
+                    f"{_lbl(game, this_player)} {takes} {len(rest)} card(s)."
                 ),
                 "event_type": "joker",
                 "actor_id": this_player.id,
                 "target_id": this_player.id,
+                "revealed_cards": latest_cards,
                 **_snap(game),
             })
         elif gh.is_honest():
@@ -141,12 +152,13 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
             gh.reset_board()
             resolve_events.append({
                 "msg": (
-                    f"{_lbl(game, prev_player)} was honest — "
+                    f"{_lbl(game, prev_player)} was honest — played [{revealed}]. "
                     f"{_lbl(game, this_player)} takes {n} card(s). Ouch."
                 ),
                 "event_type": "take_honest",
                 "actor_id": this_player.id,
                 "target_id": this_player.id,
+                "revealed_cards": latest_cards,
                 **_snap(game),
             })
         else:
@@ -157,12 +169,13 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
             gh.reset_board()
             resolve_events.append({
                 "msg": (
-                    f"{_lbl(game, prev_player)} was bluffing — "
-                    f"they take {n} card(s). Free turn for {_lbl(game, this_player)}!"
+                    f"{_lbl(game, prev_player)} was bluffing — actually played [{revealed}]. "
+                    f"They take {n} card(s). Free turn for {_lbl(game, this_player)}!"
                 ),
                 "event_type": "take_bluff",
                 "actor_id": this_player.id,
                 "target_id": prev_player.id,
+                "revealed_cards": latest_cards,
                 **_snap(game),
             })
     else:
@@ -187,14 +200,23 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
                 **_snap(game),
             })
 
-    # Win check
-    if prev_player.has_no_cards():
-        gh.set_winners(prev_player)
+    # Win check — any playing player can reach 0 cards via the discard phase
+    for winner in [p for p in gh.playing_players() if p.has_no_cards()]:
+        gh.set_winners(winner)
         resolve_events.append({
-            "msg": f"{_lbl(game, prev_player)} wins!",
+            "msg": f"{_lbl(game, winner)} wins!",
             "event_type": "win",
-            "actor_id": prev_player.id,
-            "target_id": prev_player.id,
+            "actor_id": winner.id,
+            "target_id": winner.id,
+            **_snap(game),
+        })
+    if gh.n_playing_players() == 2:
+        losers = gh.playing_players()
+        resolve_events.append({
+            "msg": f"Game over — {_lbl(game, losers[0])} and {_lbl(game, losers[1])} lose!",
+            "event_type": "game_over",
+            "actor_id": None,
+            "target_id": None,
             **_snap(game),
         })
 
@@ -213,7 +235,7 @@ def _advance_bots(game: dict) -> list[dict]:
 
     while True:
         # Check game-over condition
-        if gh.n_winners_players() >= 1 or gh.turn.counter >= 1000:
+        if gh.n_playing_players() <= 2 or gh.turn.counter >= 1000:
             break
 
         # Determine next player
@@ -296,7 +318,7 @@ def _serialize(game: dict) -> dict:
     playing = gh.playing_players()
     winners = gh.get_winners()
 
-    is_game_over = gh.n_winners_players() >= 1 or gh.turn.counter >= 1000
+    is_game_over = gh.n_playing_players() <= 2 or gh.turn.counter >= 1000
     timed_out = gh.turn.counter >= 1000
 
     players_info = []
@@ -345,7 +367,7 @@ def _serialize(game: dict) -> dict:
         "declared_name": cln(gh.board.number) if gh.board.number else None,
         "streak": gh.turn.streak,
         "available_numbers": gh.board.availables,
-        "hand": sorted(human.cards.hand),
+        "hand": list(human.cards.hand),
         "players": players_info,
         "messages": game["messages"],
         "standings": standings,
@@ -372,7 +394,7 @@ def api_create_game():
     bot_pool   = body.get("bot_pool", list(ALL_BOTS.keys()))
     show_names = bool(body.get("show_names", True))
 
-    n_players = max(2, min(8, n_players))
+    n_players = max(3, min(8, n_players))
 
     # Build bot pool
     pool = [ALL_BOTS[n] for n in bot_pool if n in ALL_BOTS]
@@ -429,10 +451,10 @@ def api_play(gid: str):
     if not card_indices:
         return jsonify({"error": "no cards selected"}), 400
 
-    # Pick cards from human's hand by index into sorted hand
-    hand_sorted = sorted(human.cards.hand)
-    cards       = [hand_sorted[i] for i in card_indices]
-    human.cards.pick_idx(card_indices)
+    # Pick cards from human's hand by index (hand is unsorted — indices match display order)
+    cards = [human.cards.hand[i] for i in card_indices]
+    for i in sorted(card_indices, reverse=True):
+        human.cards.hand.pop(i)
 
     is_first = gh.is_first_hand()
 
