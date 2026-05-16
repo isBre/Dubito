@@ -40,8 +40,8 @@ ALL_BOTS: dict[str, type] = {
     "UsualBot":       probability.UsualBot,
     "RiskCounter":    probability.RiskCounter,
     "ClaudeBot":      claude_bots.ClaudeBot,
-    **_try("bots.chatgpt", ["ChatGPTBot", "ChatGPT_thinking"]),
-    **_try("bots.gemini",  ["GeminiBot"]),
+    **_try("bots.llms.chatgpt", ["ChatGPTBot", "ChatGPT_thinking"]),
+    **_try("bots.llms.gemini",  ["GeminiBot"]),
 }
 
 # ── In-memory game store ──────────────────────────────────────────────────────
@@ -187,14 +187,23 @@ def _process_output(game: dict, output: TurnOutput, this_player: Player, prev_pl
                 **_snap(game),
             })
 
-    # Win check
-    if prev_player.has_no_cards():
-        gh.set_winners(prev_player)
+    # Win check — any playing player can reach 0 cards via the discard phase
+    for winner in [p for p in gh.playing_players() if p.has_no_cards()]:
+        gh.set_winners(winner)
         resolve_events.append({
-            "msg": f"{_lbl(game, prev_player)} wins!",
+            "msg": f"{_lbl(game, winner)} wins!",
             "event_type": "win",
-            "actor_id": prev_player.id,
-            "target_id": prev_player.id,
+            "actor_id": winner.id,
+            "target_id": winner.id,
+            **_snap(game),
+        })
+    if gh.n_playing_players() == 2:
+        losers = gh.playing_players()
+        resolve_events.append({
+            "msg": f"Game over — {_lbl(game, losers[0])} and {_lbl(game, losers[1])} lose!",
+            "event_type": "game_over",
+            "actor_id": None,
+            "target_id": None,
             **_snap(game),
         })
 
@@ -213,7 +222,7 @@ def _advance_bots(game: dict) -> list[dict]:
 
     while True:
         # Check game-over condition
-        if gh.n_winners_players() >= 1 or gh.turn.counter >= 1000:
+        if gh.n_playing_players() <= 2 or gh.turn.counter >= 1000:
             break
 
         # Determine next player
@@ -296,7 +305,7 @@ def _serialize(game: dict) -> dict:
     playing = gh.playing_players()
     winners = gh.get_winners()
 
-    is_game_over = gh.n_winners_players() >= 1 or gh.turn.counter >= 1000
+    is_game_over = gh.n_playing_players() <= 2 or gh.turn.counter >= 1000
     timed_out = gh.turn.counter >= 1000
 
     players_info = []
@@ -372,7 +381,7 @@ def api_create_game():
     bot_pool   = body.get("bot_pool", list(ALL_BOTS.keys()))
     show_names = bool(body.get("show_names", True))
 
-    n_players = max(2, min(8, n_players))
+    n_players = max(3, min(8, n_players))
 
     # Build bot pool
     pool = [ALL_BOTS[n] for n in bot_pool if n in ALL_BOTS]

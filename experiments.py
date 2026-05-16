@@ -429,42 +429,6 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         )
         return fig
 
-    # ── chart: hard-win% vs soft-win% positioning space ──────────────────────
-    fig_win_space = go.Figure()
-    for b in players:
-        m = metrics[b]
-        fig_win_space.add_trace(go.Scatter(
-            x=[m['hard_win_rate']], y=[m['soft_win_rate']],
-            mode='markers+text',
-            name=b,
-            text=[b],
-            textposition='top center',
-            marker=dict(color=bot_colour[b], size=14),
-            hovertemplate=(
-                f'<b>{b}</b><br>'
-                f'Hard Win %: %{{x:.1%}}<br>'
-                f'Soft Win %: %{{y:.1%}}<extra></extra>'
-            ),
-            showlegend=False,
-        ))
-    fig_win_space.add_vline(x=hard_base, line_dash='dot', line_color='crimson',
-                            annotation_text=f'Hard baseline ({hard_base:.1%})',
-                            annotation_position='top right')
-    fig_win_space.add_hline(y=soft_base, line_dash='dot', line_color='steelblue',
-                            annotation_text=f'Soft baseline ({soft_base:.1%})',
-                            annotation_position='top left')
-    fig_win_space.update_layout(
-        title='Win-Type Space: Hard Win % vs Soft Win %',
-        xaxis_title='Hard Win % (1st place)',
-        yaxis_title='Soft Win % (2nd to n−2)',
-        xaxis_tickformat='.0%',
-        yaxis_tickformat='.0%',
-        plot_bgcolor='white', paper_bgcolor='white',
-        font_family='Inter, sans-serif',
-        margin=dict(t=60, b=60),
-        height=480,
-    )
-
     fig_sc_style   = _scatter('bluff_rate',    'doubt_rate',     'Bluff Rate',    'Doubt Rate',    'Style Space: Bluff Rate vs Doubt Rate')
     fig_sc_agg_wr  = _scatter('bluff_rate',    'win_rate',       'Bluff Rate',    'Win Rate',      'Does Aggression Pay Off? Bluff Rate vs Win Rate')
     fig_sc_quality = _scatter('bluff_stealth', 'doubt_accuracy', 'Bluff Stealth', 'Doubt Accuracy','Deception Quality: Bluff Stealth vs Doubt Accuracy')
@@ -510,6 +474,42 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     avg_n       = sum(ap) / len(ap)
     hard_base   = 1.0 / avg_n                          # 1 hard winner per game
     soft_base   = max(0.0, (avg_n - 3) / avg_n)        # n-3 soft-win slots (game ends at 2 remaining)
+
+    # ── chart: hard-win% vs soft-win% positioning space ──────────────────────
+    fig_win_space = go.Figure()
+    for b in players:
+        m = metrics[b]
+        fig_win_space.add_trace(go.Scatter(
+            x=[m['hard_win_rate']], y=[m['soft_win_rate']],
+            mode='markers+text',
+            name=b,
+            text=[b],
+            textposition='top center',
+            marker=dict(color=bot_colour[b], size=14),
+            hovertemplate=(
+                f'<b>{b}</b><br>'
+                f'Hard Win %: %{{x:.1%}}<br>'
+                f'Soft Win %: %{{y:.1%}}<extra></extra>'
+            ),
+            showlegend=False,
+        ))
+    fig_win_space.add_vline(x=hard_base, line_dash='dot', line_color='crimson',
+                            annotation_text=f'Hard baseline ({hard_base:.1%})',
+                            annotation_position='top right')
+    fig_win_space.add_hline(y=soft_base, line_dash='dot', line_color='steelblue',
+                            annotation_text=f'Soft baseline ({soft_base:.1%})',
+                            annotation_position='top left')
+    fig_win_space.update_layout(
+        title='Win-Type Space: Hard Win % vs Soft Win %',
+        xaxis_title='Hard Win % (1st place)',
+        yaxis_title='Soft Win % (2nd to n−2)',
+        xaxis_tickformat='.0%',
+        yaxis_tickformat='.0%',
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif',
+        margin=dict(t=60, b=60),
+        height=480,
+    )
 
     # ── hard-win table rows (sorted by hard win rate) ──────────────────────────
     hard_rows = ''
