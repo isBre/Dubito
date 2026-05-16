@@ -77,6 +77,8 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
         'cards_played': 0,
         'play_turns': 0,
         'not_first_turns': 0,
+        # relative finish position: 1.0 = 1st, 0.0 = last (normalized across n players)
+        'total_position': 0.0,
     }
 
     final_infos = {
@@ -98,13 +100,22 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
         results, game_infos = dubito(all_players)
         stats = game_infos['stats'].data
         n = len(all_players)
+        winners = results['winners']
+        n_winners = len(winners)
 
         for idx, p in enumerate(all_players):
             name = p.__class__.__name__
-            outcome = 'wins' if p in results['winners'] else 'losses'
+            outcome = 'wins' if p in winners else 'losses'
             prev_name = all_players[(idx - 1) % n].__class__.__name__
             next_name = all_players[(idx + 1) % n].__class__.__name__
             s = stats[p.id]
+
+            # Relative finish position: 1.0 = 1st place, 0.0 = last place
+            if p in winners:
+                raw_pos = winners.index(p) + 1
+            else:
+                raw_pos = n_winners + 1  # tied for last
+            rel_pos = (n - raw_pos) / (n - 1) if n > 1 else 0.5
 
             for bucket in ('total', outcome):
                 b = final_infos[name][bucket]
@@ -119,12 +130,14 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
                 b['cards_played'] += s['total_cards_played']
                 b['play_turns'] += s['play_turns']
                 b['not_first_turns'] += s['not_first_turns']
+                b['total_position'] += rel_pos
 
     for alg in players_alg:
         for bucket in ('total', 'wins', 'losses'):
             g = final_infos[alg][bucket]['games']
             if g > 0:
                 final_infos[alg][bucket]['avg_cards'] /= g
+                final_infos[alg][bucket]['total_position'] /= g
 
     return final_infos
 
@@ -134,6 +147,10 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
 def _win_rate(info: dict) -> float:
     total = info['total']['games']
     return info['wins']['games'] / total if total > 0 else 0.0
+
+
+def _safe(num, den, fallback=0.0) -> float:
+    return num / den if den > 0 else fallback
 
 
 def _neighbor_win_rates(bot: str, data: dict, position: str) -> dict[str, float]:
@@ -163,6 +180,21 @@ def _build_heatmap_matrix(data: dict, players: list[str], position: str):
                 matrix[i][j] = round(v, 3)
                 text[i][j]   = f'{v:.2f}'
     return matrix, text
+
+
+def _compute_bot_metrics(bot: str, final_infos: dict) -> dict:
+    """Centralised derived stats for a bot (used by radar, scatter, position charts)."""
+    t = final_infos[bot]['total']
+    g = t['games']
+    return {
+        'win_rate':       _win_rate(final_infos[bot]),
+        'avg_position':   t['total_position'],   # 1.0 = always 1st, 0.0 = always last
+        'bluff_rate':     _safe(t['bluffs'], t['play_turns']),
+        'bluff_stealth':  _safe(t['bluffs'] - t['bluff_caught'], t['bluffs']),
+        'doubt_rate':     _safe(t['doubts'], t['not_first_turns']),
+        'doubt_accuracy': _safe(t['successful_doubts'], t['doubts']),
+        'cards_per_turn': _safe(t['cards_played'], t['play_turns']),
+    }
 
 
 def generate_html_report(final_infos: dict, config: dict, output_path: str = 'report.html') -> None:
@@ -254,22 +286,21 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     fig_hm_prev = _heatmap_fig('prev', 'Win Rate given Prev Neighbor')
     fig_hm_next = _heatmap_fig('next', 'Win Rate given Next Neighbor')
 
+    # ── pre-compute all derived metrics ───────────────────────────────────────
+    metrics = {b: _compute_bot_metrics(b, final_infos) for b in players}
+
     # ── chart 5: radar / spider chart ─────────────────────────────────────────
-    def _safe(num, den, fallback=0.0) -> float:
-        return num / den if den > 0 else fallback
-
-    def _radar_axes(bot: str) -> dict[str, float]:
-        t = final_infos[bot]['total']
-        return {
-            'Win Rate':        _win_rate(final_infos[bot]),
-            'Bluff Rate':      _safe(t['bluffs'], t['play_turns']),
-            'Bluff Stealth':   _safe(t['bluffs'] - t['bluff_caught'], t['bluffs']),
-            'Doubt Rate':      _safe(t['doubts'], t['not_first_turns']),
-            'Doubt Accuracy':  _safe(t['successful_doubts'], t['doubts']),
-            'Cards per Turn':  _safe(t['cards_played'], t['play_turns']),
+    axes_raw = {}
+    for b in players:
+        m = metrics[b]
+        axes_raw[b] = {
+            'Win Rate':       m['win_rate'],
+            'Bluff Rate':     m['bluff_rate'],
+            'Bluff Stealth':  m['bluff_stealth'],
+            'Doubt Rate':     m['doubt_rate'],
+            'Doubt Accuracy': m['doubt_accuracy'],
+            'Cards per Turn': m['cards_per_turn'],
         }
-
-    axes_raw = {b: _radar_axes(b) for b in players}
 
     # Normalize "Cards per Turn" to [0,1] so all axes share the same scale.
     max_cpt = max((axes_raw[b]['Cards per Turn'] for b in players), default=1) or 1
@@ -311,6 +342,58 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         margin=dict(t=60, b=40, l=60, r=180),
         height=560,
     )
+
+    # ── chart 6: avg relative position ────────────────────────────────────────
+    pos_bots   = sorted(players, key=lambda b: metrics[b]['avg_position'], reverse=True)
+    pos_vals   = [metrics[b]['avg_position'] for b in pos_bots]
+    fig_pos = go.Figure()
+    fig_pos.add_trace(go.Bar(
+        x=pos_bots, y=pos_vals,
+        marker_color=[bot_colour[b] for b in pos_bots],
+        text=[f'{v:.2f}' for v in pos_vals],
+        textposition='outside',
+        hovertemplate='<b>%{x}</b><br>Avg relative position: %{y:.3f}<extra></extra>',
+    ))
+    fig_pos.add_hline(y=0.5, line_dash='dot', line_color='crimson',
+                      annotation_text='Random baseline (0.5)',
+                      annotation_position='top right')
+    fig_pos.update_layout(
+        title='Avg Relative Finish Position (1.0 = always 1st, 0.0 = always last)',
+        yaxis_title='Relative position', yaxis_range=[0, 1.15],
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif', margin=dict(t=60, b=80),
+    )
+    fig_pos.update_xaxes(tickangle=-35)
+
+    # ── helper: build a labelled scatter plot ─────────────────────────────────
+    def _scatter(x_key: str, y_key: str, x_label: str, y_label: str, title: str) -> go.Figure:
+        fig = go.Figure()
+        for b in players:
+            m = metrics[b]
+            fig.add_trace(go.Scatter(
+                x=[m[x_key]], y=[m[y_key]],
+                mode='markers+text',
+                name=b,
+                text=[b],
+                textposition='top center',
+                marker=dict(color=bot_colour[b], size=12),
+                hovertemplate=f'<b>{b}</b><br>{x_label}: %{{x:.2f}}<br>{y_label}: %{{y:.2f}}<extra></extra>',
+                showlegend=False,
+            ))
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_label, yaxis_title=y_label,
+            plot_bgcolor='white', paper_bgcolor='white',
+            font_family='Inter, sans-serif',
+            margin=dict(t=60, b=60),
+            height=420,
+        )
+        return fig
+
+    fig_sc_style   = _scatter('bluff_rate',    'doubt_rate',     'Bluff Rate',    'Doubt Rate',    'Style Space: Bluff Rate vs Doubt Rate')
+    fig_sc_agg_wr  = _scatter('bluff_rate',    'win_rate',       'Bluff Rate',    'Win Rate',      'Does Aggression Pay Off? Bluff Rate vs Win Rate')
+    fig_sc_quality = _scatter('bluff_stealth', 'doubt_accuracy', 'Bluff Stealth', 'Doubt Accuracy','Deception Quality: Bluff Stealth vs Doubt Accuracy')
+    fig_sc_pos_wr  = _scatter('avg_position',  'win_rate',       'Avg Relative Position', 'Win Rate', 'Position vs Win Rate')
 
     # ── per-bot neighbor charts ────────────────────────────────────────────────
     def _neighbor_fig(bot: str, position: str) -> go.Figure:
@@ -532,6 +615,9 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         <div class="chart-card">{_div(fig_hm_next, height='520px')}</div>
       </div>
       <div class="col-12">
+        <div class="chart-card">{_div(fig_pos, height='440px')}</div>
+      </div>
+      <div class="col-12">
         <div class="chart-card">
           {_div(fig_radar, height='580px')}
           <p class="text-muted small mt-1 mb-0 text-center">
@@ -543,6 +629,25 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
             <b>Cards per Turn</b>: avg cards placed per play turn (normalized by max).
           </p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Scatter analysis -->
+  <section id="scatter" class="mb-5">
+    <div class="section-title">Style &amp; Strategy Analysis</div>
+    <div class="row g-4">
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_sc_style,   height='440px')}</div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_sc_agg_wr,  height='440px')}</div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_sc_quality, height='440px')}</div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">{_div(fig_sc_pos_wr,  height='440px')}</div>
       </div>
     </div>
   </section>

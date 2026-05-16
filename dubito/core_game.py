@@ -119,9 +119,7 @@ def dubito(
     # If the player correctly doubt the previous player can play cards
     correct_doubt = False
     
-    # Here i want to apply a semplification, game end only when one player win
-    # In the actual game, the game ends when there are only two player left
-    while game_handler.n_winners_players() < 1 and game_handler.turn.counter < max_turns:
+    while game_handler.n_playing_players() > 1 and game_handler.turn.counter < max_turns:
         
         # Just print all the cards of all playing players
         logger += f"\n\n------ Turn {game_handler.turn.counter} ------\n"
