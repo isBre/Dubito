@@ -362,7 +362,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
           <td class="text-end">{info["wins"]["games"]:,}</td>
           <td class="text-end fw-bold" style="color:{colour}">{wr:.1%}</td>
           <td class="text-end">{info["total"]["avg_cards"]:.2f}</td>
-          <td class="text-end text-success">{info["wins"]["avg_cards"]:.2f}</td>
+          <td class="text-end" style="color:{'#198754' if wr >= baseline else '#dc3545'};">{(wr - baseline):+.1%}</td>
           <td class="text-end text-danger">{info["losses"]["avg_cards"]:.2f}</td>
         </tr>'''
 
@@ -403,8 +403,8 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
           </div>
           <div class="col-6 col-md-3">
             <div class="stat-card">
-              <div class="stat-value text-success">{info["wins"]["avg_cards"]:.2f}</div>
-              <div class="stat-label">Avg cards on win</div>
+              <div class="stat-value" style="color:{'#198754' if wr >= baseline else '#dc3545'};">{(wr - baseline):+.1%}</div>
+              <div class="stat-label">vs Baseline</div>
             </div>
           </div>
           <div class="col-6 col-md-3">
@@ -506,7 +506,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
             <th class="text-end">Wins</th>
             <th class="text-end">Win %</th>
             <th class="text-end">Avg cards</th>
-            <th class="text-end">Avg on win</th>
+            <th class="text-end">vs Baseline</th>
             <th class="text-end">Avg on loss</th>
           </tr>
         </thead>
