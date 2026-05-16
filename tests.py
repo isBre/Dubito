@@ -251,6 +251,16 @@ class TestFullGame(unittest.TestCase):
             result, _ = dubito(all_players=ps)
             self.assertEqual(len(result['winners']) + len(result['losers']), n)
 
+    def test_no_crash_on_correct_doubt_after_win(self):
+        # Regression: correct_doubt=True reuses prev_player across loop iterations.
+        # If prev_player won in the previous won-phase, set_winners must not fire again.
+        for _ in range(200):
+            result, _ = dubito(
+                all_players=[MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)],
+            )
+            total = len(result['winners']) + len(result['losers'])
+            self.assertEqual(total, 4)
+
 
 # ---------------------------------------------------------------------------
 # Board state

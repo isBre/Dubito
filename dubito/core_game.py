@@ -204,8 +204,9 @@ def dubito(
             if discarded_cards: logger += f"Player{p.id} removed: {discarded_cards}\n"
             game_handler.set_discarded_cards(discarded_cards)
 
-        # Won phase
-        if prev_player.has_no_cards():
+        # Won phase — guard against re-processing a player who already won
+        # (can happen when correct_doubt=True reuses the same prev_player reference)
+        if prev_player.has_no_cards() and prev_player in game_handler.playing_players():
             logger += f"Player{prev_player.id} Won!\n"
             game_handler.set_winners(prev_player)
             logger += f"{game_handler.n_playing_players()} Players remaining!\n"
