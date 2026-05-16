@@ -11,7 +11,7 @@ This is a self-contained reference. Read it fully before writing any code. Every
 - Cards are valued **1–13**, with **4 copies of each** value → 52 cards total.
 - **2 jokers** (value `0`) are added to the deck → 54 cards total.
 - Cards are dealt evenly to all players in a round-robin fashion at the start.
-- There are **3–8 players**. The game ends when **one player empties their hand** — that player wins.
+- There are **3–8 players**. The game ends when **2 players remain** — those two players both lose. At least 3 players are required.
 
 ### On each turn a player must do one of two things:
 
@@ -24,14 +24,20 @@ This is a self-contained reference. Read it fully before writing any code. Every
 **B) Doubt the previous player**
 - Challenge the previous player's declared play.
 - The cards are revealed:
-  - If the previous player was **honest** (or played a joker) → the doubter takes **all board cards** into their hand. Bad for the doubter.
+  - If the previous player was **honest** (or played a joker) → the joker (if any) is discarded and the doubter takes **all remaining board cards** into their hand. Bad for the doubter.
   - If the previous player was **bluffing** → the bluffer takes **all board cards** into their hand. Bad for the bluffer. The doubter then gets to play immediately (a free turn).
 
 ### Joker special rule
 
-- A joker (value `0`) always counts as honest when doubted.
-- If doubted while a joker was among the played cards: the joker is **discarded** (removed from the game), and the **remaining board cards go to the doubter**.
-- So playing a joker is protected — but it costs the doubter the non-joker board cards.
+A joker (value `0`) can be played in two valid ways:
+- **Joker only** — play just the joker, declaring any number.
+- **Joker + matching cards** — play the joker alongside cards that genuinely match the declared number (e.g. joker + two 7s, declaring 7).
+
+In both cases, the joker makes the play count as **honest** if doubted:
+- The joker itself is **discarded** (permanently removed from the game).
+- All **other** board cards (from this and previous plays in the round) go to the doubter.
+
+So playing a joker protects you from a correct doubt — but the doubter picks up every non-joker card on the board, which can be a large penalty.
 
 ### Discarding four-of-a-kind
 
@@ -42,6 +48,12 @@ This is a self-contained reference. Read it fully before writing any code. Every
 
 - A player wins the moment they have **0 cards** in their hand.
 - This is checked at the end of each turn, after discards.
+- The game ends when **2 players remain** — those two players both lose. This means a minimum of **3 players** is required for the game to produce a winner.
+- **Finishing positions:**
+  - **Hard win** (1st place) — first player to empty their hand. The best possible outcome and the primary goal.
+  - **Soft win** (2nd to n−2 place) — emptied their hand while ≥3 players were still active. Better than losing, but not the target.
+  - **Loss** (last 2 players) — the two players still holding cards when the game ends. Both are losers regardless of card count.
+- Design your bot to **prioritize the hard win**: play aggressively to empty your hand first rather than sitting back to avoid losing.
 
 ### Round structure
 
@@ -413,6 +425,16 @@ class ExampleBot(BotBase):
 | I have 3+ matching cards | 3+ cards | 3 cards (if maximize) |
 
 → Bluffing is only worth the risk when you have **fewer than 3 matching cards** and next player is unlikely to doubt you.
+
+**Hard win vs soft win** — a `PlayerWonEvent` with `position > 1` is a soft win for that player. You can use this to track how many opponents are left and recalibrate your aggression:
+
+| Situation | Recommended stance |
+|---|---|
+| Many players remain, you have many cards | Aggressive — bluff and maximize to shed cards fast |
+| Few players remain, you have few cards | Careful — a wrong doubt could cost you the hard win |
+| `p.prev.n_cards == 0` | Always doubt — letting them win costs you your position |
+
+> Hard wins score better than soft wins in the experiment runner. A bot that consistently gets soft wins but rarely finishes first is underperforming.
 
 ---
 

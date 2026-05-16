@@ -162,14 +162,14 @@ class TestIsHonest(unittest.TestCase):
 class TestJokerMechanic(unittest.TestCase):
 
     def test_game_completes_with_jokers(self):
-        # New loop: game ends when 1 player remains → exactly 1 loser
+        # Game ends when 2 players remain → exactly 2 losers
         for _ in range(10):
             result, _ = dubito(
                 all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
                 shuffle_players=True,
                 n_jollies=2,
             )
-            self.assertEqual(len(result['losers']), 1)
+            self.assertEqual(len(result['losers']), 2)
 
     def test_joker_event_appears_in_logs(self):
         # MrDoubt always doubts, RandomBoi bluffs randomly — joker events are frequent
@@ -192,7 +192,7 @@ class TestJokerMechanic(unittest.TestCase):
                 shuffle_players=True,
                 n_jollies=0,
             )
-            self.assertEqual(len(result['losers']), 1)
+            self.assertEqual(len(result['losers']), 2)
 
 
 # ---------------------------------------------------------------------------
@@ -201,19 +201,19 @@ class TestJokerMechanic(unittest.TestCase):
 
 class TestFullGame(unittest.TestCase):
 
-    def test_exactly_one_loser(self):
-        # Game ends when 1 player remains — that player is the sole loser.
+    def test_exactly_two_losers(self):
+        # Game ends when 2 players remain — both are losers.
         for _ in range(20):
             result, _ = dubito(
                 all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
             )
-            self.assertEqual(len(result['losers']), 1)
+            self.assertEqual(len(result['losers']), 2)
 
-    def test_n_minus_one_winners(self):
+    def test_n_minus_two_winners(self):
         players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
         for _ in range(10):
             result, _ = dubito(all_players=list(players))
-            self.assertEqual(len(result['winners']), len(players) - 1)
+            self.assertEqual(len(result['winners']), len(players) - 2)
 
     def test_winner_not_in_losers(self):
         result, _ = dubito(
@@ -250,6 +250,8 @@ class TestFullGame(unittest.TestCase):
             ps = [RandomBoi(i) for i in range(1, n + 1)]
             result, _ = dubito(all_players=ps)
             self.assertEqual(len(result['winners']) + len(result['losers']), n)
+            self.assertEqual(len(result['losers']), 2)
+            self.assertEqual(len(result['winners']), n - 2)
 
     def test_no_crash_on_correct_doubt_after_win(self):
         # Regression: correct_doubt=True reuses prev_player across loop iterations.
@@ -665,6 +667,50 @@ class TestTurnOrderAfterWin(unittest.TestCase):
             )
             total = len(result['winners']) + len(result['losers'])
             self.assertEqual(total, 4)
+
+
+# ---------------------------------------------------------------------------
+# Two-loser rule: game always ends with exactly 2 losers
+# ---------------------------------------------------------------------------
+
+class TestTwoLoserRule(unittest.TestCase):
+
+    def test_three_players_one_winner_two_losers_no_soft_wins(self):
+        # With 3 players: first to empty hand wins, the remaining 2 both lose.
+        # Soft wins are impossible — there is no middle position.
+        for _ in range(30):
+            result, _ = dubito(
+                all_players=[AlwaysTruthful(1), MrNoDoubt(2), RandomBoi(3)],
+            )
+            self.assertEqual(len(result['winners']), 1)
+            self.assertEqual(len(result['losers']), 2)
+
+    def test_four_players_two_winners_two_losers(self):
+        # 1 hard win + 1 soft win + 2 losses
+        for _ in range(20):
+            result, _ = dubito(
+                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+            )
+            self.assertEqual(len(result['winners']), 2)
+            self.assertEqual(len(result['losers']), 2)
+
+    def test_five_players_three_winners_two_losers(self):
+        # 1 hard win + 2 soft wins + 2 losses
+        for _ in range(10):
+            result, _ = dubito(
+                all_players=[RandomBoi(i) for i in range(1, 6)],
+            )
+            self.assertEqual(len(result['winners']), 3)
+            self.assertEqual(len(result['losers']), 2)
+
+    def test_losers_are_disjoint_from_winners(self):
+        for _ in range(20):
+            result, _ = dubito(
+                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+            )
+            winner_ids = {p.id for p in result['winners']}
+            loser_ids  = {p.id for p in result['losers']}
+            self.assertTrue(winner_ids.isdisjoint(loser_ids))
 
 
 if __name__ == '__main__':

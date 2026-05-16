@@ -125,7 +125,7 @@ def dubito(
     # When True: doubter caught the bluffer, so the doubter replays without advancing turns.
     replay_turn = False
     
-    while game_handler.n_playing_players() > 1 and game_handler.turn.counter < max_turns:
+    while game_handler.n_playing_players() > 2 and game_handler.turn.counter < max_turns:
         
         # Just print all the cards of all playing players
         logger += f"\n\n------ Turn {game_handler.turn.counter} ------\n"

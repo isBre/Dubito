@@ -75,7 +75,7 @@ def print_summary(final_infos: dict[str, BotStats]) -> None:
     col = 20
 
     def _section(title: str, bucket: str, rate_fn):
-        header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'Avg Cards':>10}"
+        header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'Cards/Turn':>11}"
         sep = '=' * len(header)
         print(f'\n{sep}')
         print(title)
@@ -88,15 +88,16 @@ def print_summary(final_infos: dict[str, BotStats]) -> None:
                     rate_fn(info) * 100,
                     bot,
                     info.total.games,
-                    getattr(info, bucket).avg_cards,
+                    _safe(getattr(info, bucket).cards_played,
+                          getattr(info, bucket).play_turns),
                 )
                 for bot, info in final_infos.items()
                 if info.total.games > 0
             ],
             reverse=True,
         )
-        for win_pct, bot, total, avg_cards in rows:
-            print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {avg_cards:>10.2f}")
+        for win_pct, bot, total, cards_per_turn in rows:
+            print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {cards_per_turn:>11.2f}")
         print(sep)
 
     _section('Hard Wins (1st place)',    'hard_wins', _hard_win_rate)
@@ -428,6 +429,42 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         )
         return fig
 
+    # ── chart: hard-win% vs soft-win% positioning space ──────────────────────
+    fig_win_space = go.Figure()
+    for b in players:
+        m = metrics[b]
+        fig_win_space.add_trace(go.Scatter(
+            x=[m['hard_win_rate']], y=[m['soft_win_rate']],
+            mode='markers+text',
+            name=b,
+            text=[b],
+            textposition='top center',
+            marker=dict(color=bot_colour[b], size=14),
+            hovertemplate=(
+                f'<b>{b}</b><br>'
+                f'Hard Win %: %{{x:.1%}}<br>'
+                f'Soft Win %: %{{y:.1%}}<extra></extra>'
+            ),
+            showlegend=False,
+        ))
+    fig_win_space.add_vline(x=hard_base, line_dash='dot', line_color='crimson',
+                            annotation_text=f'Hard baseline ({hard_base:.1%})',
+                            annotation_position='top right')
+    fig_win_space.add_hline(y=soft_base, line_dash='dot', line_color='steelblue',
+                            annotation_text=f'Soft baseline ({soft_base:.1%})',
+                            annotation_position='top left')
+    fig_win_space.update_layout(
+        title='Win-Type Space: Hard Win % vs Soft Win %',
+        xaxis_title='Hard Win % (1st place)',
+        yaxis_title='Soft Win % (2nd to n−2)',
+        xaxis_tickformat='.0%',
+        yaxis_tickformat='.0%',
+        plot_bgcolor='white', paper_bgcolor='white',
+        font_family='Inter, sans-serif',
+        margin=dict(t=60, b=60),
+        height=480,
+    )
+
     fig_sc_style   = _scatter('bluff_rate',    'doubt_rate',     'Bluff Rate',    'Doubt Rate',    'Style Space: Bluff Rate vs Doubt Rate')
     fig_sc_agg_wr  = _scatter('bluff_rate',    'win_rate',       'Bluff Rate',    'Win Rate',      'Does Aggression Pay Off? Bluff Rate vs Win Rate')
     fig_sc_quality = _scatter('bluff_stealth', 'doubt_accuracy', 'Bluff Stealth', 'Doubt Accuracy','Deception Quality: Bluff Stealth vs Doubt Accuracy')
@@ -471,8 +508,8 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     # ── baselines (approximate, from config player range) ─────────────────────
     ap          = config.get('available_players', [5])
     avg_n       = sum(ap) / len(ap)
-    hard_base   = 1.0 / avg_n
-    soft_base   = max(0.0, (avg_n - 2) / avg_n)
+    hard_base   = 1.0 / avg_n                          # 1 hard winner per game
+    soft_base   = max(0.0, (avg_n - 3) / avg_n)        # n-3 soft-win slots (game ends at 2 remaining)
 
     # ── hard-win table rows (sorted by hard win rate) ──────────────────────────
     hard_rows = ''
@@ -657,7 +694,7 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
   <section id="overview" class="mb-5">
     <div class="section-title">Hard Wins — 1st Place</div>
     <p class="text-muted small mb-2">A <strong>hard win</strong> means the bot was the first to empty their hand.
-      Baseline ≈ {hard_base:.1%} (1 / avg players).</p>
+      The game ends when 2 players remain — they both lose. Baseline ≈ {hard_base:.1%} (1 / avg players).</p>
     <div class="table-responsive mb-5">
       <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm">
         <thead>
@@ -676,9 +713,9 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
       </table>
     </div>
 
-    <div class="section-title">Soft Wins — 2nd to n−1</div>
-    <p class="text-muted small mb-2">A <strong>soft win</strong> means the bot finished above last but did not finish 1st.
-      Baseline ≈ {soft_base:.1%} ((avg players − 2) / avg players).</p>
+    <div class="section-title">Soft Wins — 2nd to n−2</div>
+    <p class="text-muted small mb-2">A <strong>soft win</strong> means the bot emptied their hand while ≥3 players were still active, but did not finish 1st.
+      The final 2 remaining players always lose. Baseline ≈ {soft_base:.1%} ((avg players − 3) / avg players).</p>
     <div class="table-responsive">
       <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm">
         <thead>
@@ -695,6 +732,14 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         </thead>
         <tbody>{soft_rows}</tbody>
       </table>
+    </div>
+
+    <!-- Win-type space scatter -->
+    <div class="mt-4">
+      <div class="chart-card">{_div(fig_win_space, height='500px')}</div>
+      <p class="text-muted small mt-2 mb-0 text-center">
+        Top-right = strong at both types. Right of the red line = above hard-win baseline. Above the blue line = above soft-win baseline.
+      </p>
     </div>
   </section>
 
