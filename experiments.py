@@ -6,7 +6,8 @@ import yaml
 import copy
 import sys
 import datetime
-from bots import rule_based, probability, claude as claude_bots, chatgpt as chatgpt_bots, gemini as gemini_bots
+from bots.manual import rule_based, probability
+from bots.llms import claude as claude_bots, chatgpt as chatgpt_bots, gemini as gemini_bots
 
 
 ALL_BOTS = {

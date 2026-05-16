@@ -2,10 +2,16 @@ import random
 from pprint import pprint
 
 from .player import Player
-from bots.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
-# from bots.probability import AdaptyBoi
+from bots.manual.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
+# from bots.manual.probability import AdaptyBoi
 from .handlers import GameHandler, StatsHandler, generate_player_data
+from .game_data import CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent
 from machine_learning.dataset import DubitoDataset
+
+
+def _emit(players: list[Player], event) -> None:
+    for p in players:
+        p.observe(event)
 
 
 def create_deck(deck_size: int = 14, n_jollies: int = 0) -> list[int]:
@@ -116,8 +122,8 @@ def dubito(
     stats_handler = StatsHandler(all_players = all_players)
     dataset_handler = DubitoDataset()
     
-    # If the player correctly doubt the previous player can play cards
-    correct_doubt = False
+    # When True: doubter caught the bluffer, so the doubter replays without advancing turns.
+    replay_turn = False
     
     while game_handler.n_playing_players() > 1 and game_handler.turn.counter < max_turns:
         
@@ -127,8 +133,8 @@ def dubito(
         
         # Get previous_player, this_player and next_player and update the turn values
         # If prev_player correctly doubted now he can place cards.
-        if correct_doubt:
-            correct_doubt = False
+        if replay_turn:
+            replay_turn = False
         else:
             prev_player, this_player = game_handler.next_turn()
         
@@ -151,8 +157,12 @@ def dubito(
         elif output.doubt:
             stats_handler.increase_player_doubts(this_player)
             logger += f'Player{this_player.id} ({this_player.__class__.__name__}) doubt Player{prev_player.id} ({prev_player.__class__.__name__})!\n'
-            # Check if the last card(s) played from the last player are correct
-            # a.k.a. Prev_Player is bluffing or not
+
+            # Snapshot board before any mutation — used for the event below
+            latest_cards_snap = list(game_handler.get_latest_played_cards())
+            full_board_snap = list(game_handler.get_board())
+            declared_snap = game_handler.get_current_number()
+
             jokers_played = game_handler.jokers_in_latest()
             if jokers_played:
                 # Joker protection: jokers are discarded, remaining board cards go to the doubter
@@ -162,21 +172,35 @@ def dubito(
                 this_player.add_cards(board_cards)
                 stats_handler.increase_player_honesty(prev_player)
                 logger += f"Joker revealed! Player{this_player.id} ({this_player.__class__.__name__}) gets {len(board_cards)} cards, {len(jokers_played)} joker(s) discarded!\n"
+                doubt_event = DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+                    latest_cards=latest_cards_snap, board_cards=board_cards,
+                    declared_number=declared_snap, jokers_discarded=len(jokers_played),
+                )
             elif game_handler.is_honest():
                 # This_Player get all the cards
                 this_player.add_cards(game_handler.get_board())
-                # Update player knowledge about other players
                 stats_handler.increase_player_honesty(prev_player)
                 logger += f"Player{this_player.id} ({this_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
+                doubt_event = DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+                    latest_cards=latest_cards_snap, board_cards=full_board_snap,
+                    declared_number=declared_snap,
+                )
             else:
-                correct_doubt = True
+                replay_turn = True
                 # Prev_Player get all the cards (any jokers already in the board are kept by prev_player)
                 prev_player.add_cards(game_handler.get_board())
-                # Update player knowledge about other players
                 stats_handler.increase_player_dishonesty(prev_player)
                 stats_handler.increase_player_successful_doubts(this_player)
                 logger += f"Player{prev_player.id} ({prev_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
+                doubt_event = DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=True,
+                    latest_cards=latest_cards_snap, board_cards=full_board_snap,
+                    declared_number=declared_snap,
+                )
             game_handler.reset_board()
+            _emit(game_handler.playing_players(), doubt_event)
 
         # If This_Player play cards
         else:
@@ -197,19 +221,35 @@ def dubito(
             if not game_handler.is_honest():
                 stats_handler.increase_player_bluffs(this_player)
             logger += f"Player{this_player.id} play {new_cards}\n"
+            _emit(game_handler.playing_players(), CardsPlayedEvent(
+                player_id=this_player.id,
+                declared_number=game_handler.get_current_number(),
+                n_cards=len(new_cards),
+            ))
 
         # Discard phase
         for p in game_handler.playing_players():
             discarded_cards = p.discard_cards()
-            if discarded_cards: logger += f"Player{p.id} removed: {discarded_cards}\n"
+            if discarded_cards:
+                logger += f"Player{p.id} removed: {discarded_cards}\n"
+                # discarded_cards is always a group of 4 identical cards
+                _emit(game_handler.playing_players(), DiscardEvent(
+                    player_id=p.id,
+                    card_number=discarded_cards[0],
+                ))
             game_handler.set_discarded_cards(discarded_cards)
 
-        # Won phase — guard against re-processing a player who already won
-        # (can happen when correct_doubt=True reuses the same prev_player reference)
-        if prev_player.has_no_cards() and prev_player in game_handler.playing_players():
-            logger += f"Player{prev_player.id} Won!\n"
-            game_handler.set_winners(prev_player)
+        # Won phase — check every playing player; any player can reach 0 cards via the
+        # discard phase, not just prev_player.  Snapshot the list before iterating so
+        # set_winners() mutations don't affect the loop.
+        for winner in [p for p in game_handler.playing_players() if p.has_no_cards()]:
+            logger += f"Player{winner.id} Won!\n"
+            game_handler.set_winners(winner)
             logger += f"{game_handler.n_playing_players()} Players remaining!\n"
+            _emit(game_handler.playing_players(), PlayerWonEvent(
+                player_id=winner.id,
+                position=len(game_handler.get_winners()),
+            ))
 
     logger += f"\n------ End Game ------"
     if game_handler.turn.counter >= max_turns:
