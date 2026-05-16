@@ -39,27 +39,35 @@ def save_stats(stats: dict, path: str) -> None:
 
 def print_summary(final_infos: dict) -> None:
     col = 20
-    header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'1st%':>8} {'Avg Cards':>10}"
-    sep = '=' * len(header)
-    print(f'\n{sep}')
-    print('Experiment Results')
-    print(sep)
-    print(header)
-    print('-' * len(header))
-    rows = [
-        (
-            info['wins']['games'] / info['total']['games'] * 100,
-            bot,
-            info['total']['games'],
-            info['total']['first_place'] / info['total']['games'] * 100,
-            info['total']['avg_cards'],
+    sep_len = col + 8 + 9 + 9 + 11
+
+    def _section(title: str, bucket: str, rate_fn):
+        header = f"{'Bot':<{col}} {'Games':>8} {'Win%':>8} {'Avg Cards':>10}"
+        sep = '=' * len(header)
+        print(f'\n{sep}')
+        print(title)
+        print(sep)
+        print(header)
+        print('-' * len(header))
+        rows = sorted(
+            [
+                (
+                    rate_fn(info) * 100,
+                    bot,
+                    info['total']['games'],
+                    info[bucket]['avg_cards'],
+                )
+                for bot, info in final_infos.items()
+                if info['total']['games'] > 0
+            ],
+            reverse=True,
         )
-        for bot, info in final_infos.items()
-        if info['total']['games'] > 0
-    ]
-    for win_pct, bot, total, first_pct, avg_cards in sorted(rows, reverse=True):
-        print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {first_pct:>7.1f}% {avg_cards:>10.2f}")
-    print(sep)
+        for win_pct, bot, total, avg_cards in rows:
+            print(f"{bot:<{col}} {total:>8} {win_pct:>7.1f}% {avg_cards:>10.2f}")
+        print(sep)
+
+    _section('Hard Wins (1st place)',    'hard_wins', _hard_win_rate)
+    _section('Soft Wins (2nd to n-1)',   'soft_wins', _soft_win_rate)
 
 
 def play_games(algorithms: list, available_players: list[int], n_experiments: int) -> dict:
@@ -80,14 +88,14 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
         'not_first_turns': 0,
         # relative finish position: 1.0 = 1st, 0.0 = last (normalized across n players)
         'total_position': 0.0,
-        'first_place': 0,   # times this bot finished 1st (first to empty hand)
     }
 
     final_infos = {
         alg: {
-            'total':  copy.deepcopy(placeholder),
-            'wins':   copy.deepcopy(placeholder),
-            'losses': copy.deepcopy(placeholder),
+            'total':      copy.deepcopy(placeholder),
+            'hard_wins':  copy.deepcopy(placeholder),  # finished 1st
+            'soft_wins':  copy.deepcopy(placeholder),  # finished 2nd to n-1
+            'losses':     copy.deepcopy(placeholder),  # finished last
         }
         for alg in players_alg
     }
@@ -107,7 +115,12 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
 
         for idx, p in enumerate(all_players):
             name = p.__class__.__name__
-            outcome = 'wins' if p in winners else 'losses'
+            if winners and p is winners[0]:
+                outcome = 'hard_wins'
+            elif p in winners:
+                outcome = 'soft_wins'
+            else:
+                outcome = 'losses'
             prev_name = all_players[(idx - 1) % n].__class__.__name__
             next_name = all_players[(idx + 1) % n].__class__.__name__
             s = stats[p.id]
@@ -133,11 +146,9 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
                 b['play_turns'] += s['play_turns']
                 b['not_first_turns'] += s['not_first_turns']
                 b['total_position'] += rel_pos
-                if winners and p is winners[0]:
-                    b['first_place'] += 1
 
     for alg in players_alg:
-        for bucket in ('total', 'wins', 'losses'):
+        for bucket in ('total', 'hard_wins', 'soft_wins', 'losses'):
             g = final_infos[alg][bucket]['games']
             if g > 0:
                 final_infos[alg][bucket]['avg_cards'] /= g
@@ -149,8 +160,18 @@ def play_games(algorithms: list, available_players: list[int], n_experiments: in
 # ── HTML report ────────────────────────────────────────────────────────────────
 
 def _win_rate(info: dict) -> float:
+    """Combined win rate: any finish that is not last (hard + soft)."""
     total = info['total']['games']
-    return info['wins']['games'] / total if total > 0 else 0.0
+    wins  = info['hard_wins']['games'] + info['soft_wins']['games']
+    return wins / total if total > 0 else 0.0
+
+def _hard_win_rate(info: dict) -> float:
+    total = info['total']['games']
+    return info['hard_wins']['games'] / total if total > 0 else 0.0
+
+def _soft_win_rate(info: dict) -> float:
+    total = info['total']['games']
+    return info['soft_wins']['games'] / total if total > 0 else 0.0
 
 
 def _safe(num, den, fallback=0.0) -> float:
@@ -163,7 +184,8 @@ def _neighbor_win_rates(bot: str, data: dict, position: str) -> dict[str, float]
     for neighbor in data[bot]['total'][position]:
         if neighbor == bot:
             continue
-        wins  = data[bot]['wins'][position].get(neighbor, 0)
+        wins  = (data[bot]['hard_wins'][position].get(neighbor, 0)
+                 + data[bot]['soft_wins'][position].get(neighbor, 0))
         total = data[bot]['total'][position].get(neighbor, 0)
         if total > 0:
             rates[neighbor] = wins / total
@@ -177,7 +199,8 @@ def _build_heatmap_matrix(data: dict, players: list[str], position: str):
     text   = [[''] * n for _ in range(n)]
     for i, current in enumerate(players):
         for j, neighbour in enumerate(players):
-            wins  = data[current]['wins'][position].get(neighbour, 0)
+            wins  = (data[current]['hard_wins'][position].get(neighbour, 0)
+                     + data[current]['soft_wins'][position].get(neighbour, 0))
             total = data[current]['total'][position].get(neighbour, 0)
             if total > 0:
                 v = wins / total
@@ -188,11 +211,12 @@ def _build_heatmap_matrix(data: dict, players: list[str], position: str):
 
 def _compute_bot_metrics(bot: str, final_infos: dict) -> dict:
     """Centralised derived stats for a bot (used by radar, scatter, position charts)."""
-    t = final_infos[bot]['total']
-    g = t['games']
+    info = final_infos[bot]
+    t    = info['total']
     return {
-        'win_rate':       _win_rate(final_infos[bot]),
-        'first_place_rate': _safe(t['first_place'], g),
+        'win_rate':       _win_rate(info),
+        'hard_win_rate':  _hard_win_rate(info),
+        'soft_win_rate':  _soft_win_rate(info),
         'avg_position':   t['total_position'],   # 1.0 = always 1st, 0.0 = always last
         'bluff_rate':     _safe(t['bluffs'], t['play_turns']),
         'bluff_stealth':  _safe(t['bluffs'] - t['bluff_caught'], t['bluffs']),
@@ -435,24 +459,47 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         # wrap in a sized container
         return f'<div style="width:100%;height:{height};">{html}</div>'
 
-    # ── summary table rows ─────────────────────────────────────────────────────
-    table_rows = ''
-    for rank, bot in enumerate(players, 1):
+    # ── baselines (approximate, from config player range) ─────────────────────
+    ap          = config.get('available_players', [5])
+    avg_n       = sum(ap) / len(ap)
+    hard_base   = 1.0 / avg_n
+    soft_base   = max(0.0, (avg_n - 2) / avg_n)
+
+    # ── hard-win table rows (sorted by hard win rate) ──────────────────────────
+    hard_rows = ''
+    for rank, bot in enumerate(sorted(players, key=lambda b: _hard_win_rate(final_infos[b]), reverse=True), 1):
         info   = final_infos[bot]
-        wr     = _win_rate(info)
-        fp     = _safe(info['total']['first_place'], info['total']['games'])
+        hwr    = _hard_win_rate(info)
         colour = bot_colour[bot]
         badge  = f'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{colour};margin-right:6px;"></span>'
-        table_rows += f'''
+        hard_rows += f'''
         <tr>
           <td class="text-center text-muted">{rank}</td>
           <td><a href="#{bot}" class="text-decoration-none fw-semibold">{badge}{bot}</a></td>
           <td class="text-end">{info["total"]["games"]:,}</td>
-          <td class="text-end">{info["wins"]["games"]:,}</td>
-          <td class="text-end fw-bold" style="color:{colour}">{wr:.1%}</td>
-          <td class="text-end">{fp:.1%}</td>
-          <td class="text-end">{info["total"]["avg_cards"]:.2f}</td>
-          <td class="text-end" style="color:{'#198754' if wr >= baseline else '#dc3545'};">{(wr - baseline):+.1%}</td>
+          <td class="text-end">{info["hard_wins"]["games"]:,}</td>
+          <td class="text-end fw-bold" style="color:{colour}">{hwr:.1%}</td>
+          <td class="text-end">{info["hard_wins"]["avg_cards"]:.2f}</td>
+          <td class="text-end" style="color:{'#198754' if hwr >= hard_base else '#dc3545'};">{(hwr - hard_base):+.1%}</td>
+          <td class="text-end text-danger">{info["losses"]["avg_cards"]:.2f}</td>
+        </tr>'''
+
+    # ── soft-win table rows (sorted by soft win rate) ──────────────────────────
+    soft_rows = ''
+    for rank, bot in enumerate(sorted(players, key=lambda b: _soft_win_rate(final_infos[b]), reverse=True), 1):
+        info   = final_infos[bot]
+        swr    = _soft_win_rate(info)
+        colour = bot_colour[bot]
+        badge  = f'<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{colour};margin-right:6px;"></span>'
+        soft_rows += f'''
+        <tr>
+          <td class="text-center text-muted">{rank}</td>
+          <td><a href="#{bot}" class="text-decoration-none fw-semibold">{badge}{bot}</a></td>
+          <td class="text-end">{info["total"]["games"]:,}</td>
+          <td class="text-end">{info["soft_wins"]["games"]:,}</td>
+          <td class="text-end fw-bold" style="color:{colour}">{swr:.1%}</td>
+          <td class="text-end">{info["soft_wins"]["avg_cards"]:.2f}</td>
+          <td class="text-end" style="color:{'#198754' if swr >= soft_base else '#dc3545'};">{(swr - soft_base):+.1%}</td>
           <td class="text-end text-danger">{info["losses"]["avg_cards"]:.2f}</td>
         </tr>'''
 
@@ -460,44 +507,60 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     bot_sections = ''
     for bot in players:
         info   = final_infos[bot]
-        wr     = _win_rate(info)
+        hwr    = _hard_win_rate(info)
+        swr    = _soft_win_rate(info)
         colour = bot_colour[bot]
         rank   = players.index(bot) + 1
         prev_div = _div(_neighbor_fig(bot, 'prev'), height='320px')
         next_div = _div(_neighbor_fig(bot, 'next'), height='320px')
 
-        win_pct_bar = int(wr * 100)
         bot_sections += f'''
     <div class="card mb-4 shadow-sm" id="{bot}">
       <div class="card-header d-flex align-items-center gap-2" style="background:{colour}20;border-left:4px solid {colour};">
         <span style="font-size:1.1rem;font-weight:700;color:{colour};">#{rank}</span>
         <h5 class="mb-0 ms-1">{bot}</h5>
-        <span class="ms-auto badge" style="background:{colour};font-size:0.95rem;">{wr:.1%} win rate</span>
+        <span class="ms-auto badge" style="background:{colour};font-size:0.95rem;">{hwr:.1%} hard win</span>
+        <span class="badge bg-secondary">{swr:.1%} soft win</span>
       </div>
       <div class="card-body">
         <div class="row g-3 mb-3">
-          <div class="col-6 col-md-3">
+          <div class="col-6 col-md-2">
             <div class="stat-card">
               <div class="stat-value">{info["total"]["games"]:,}</div>
               <div class="stat-label">Total games</div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
+          <div class="col-6 col-md-2">
             <div class="stat-card">
-              <div class="stat-value" style="color:{colour};">{wr:.1%}</div>
-              <div class="stat-label">Win rate</div>
+              <div class="stat-value" style="color:{colour};">{hwr:.1%}</div>
+              <div class="stat-label">Hard Win % (1st)</div>
               <div class="progress mt-1" style="height:4px;">
-                <div class="progress-bar" style="width:{win_pct_bar}%;background:{colour};"></div>
+                <div class="progress-bar" style="width:{int(hwr*100)}%;background:{colour};"></div>
               </div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
+          <div class="col-6 col-md-2">
             <div class="stat-card">
-              <div class="stat-value" style="color:{'#198754' if wr >= baseline else '#dc3545'};">{(wr - baseline):+.1%}</div>
-              <div class="stat-label">vs Baseline</div>
+              <div class="stat-value" style="color:{'#198754' if hwr >= hard_base else '#dc3545'};">{(hwr - hard_base):+.1%}</div>
+              <div class="stat-label">vs Hard Baseline</div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
+          <div class="col-6 col-md-2">
+            <div class="stat-card">
+              <div class="stat-value text-secondary">{swr:.1%}</div>
+              <div class="stat-label">Soft Win % (2nd+)</div>
+              <div class="progress mt-1" style="height:4px;">
+                <div class="progress-bar bg-secondary" style="width:{int(swr*100)}%;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-2">
+            <div class="stat-card">
+              <div class="stat-value" style="color:{'#198754' if swr >= soft_base else '#dc3545'};">{(swr - soft_base):+.1%}</div>
+              <div class="stat-label">vs Soft Baseline</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-2">
             <div class="stat-card">
               <div class="stat-value text-danger">{info["losses"]["avg_cards"]:.2f}</div>
               <div class="stat-label">Avg cards on loss</div>
@@ -512,11 +575,9 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     </div>'''
 
     # ── experiment config string ───────────────────────────────────────────────
-    n_exp       = config.get('n_experiments', '?')
-    ap          = config.get('available_players', [])
-    ap_str      = f'{ap[0]}–{ap[-1]}' if ap else '?'
-    bot_names   = config.get('bots', list(final_infos.keys()))
-    generated   = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+    n_exp     = config.get('n_experiments', '?')
+    ap_str    = f'{ap[0]}–{ap[-1]}' if ap else '?'
+    generated = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
 
     # ── assemble full HTML ─────────────────────────────────────────────────────
     html = f'''<!DOCTYPE html>
@@ -583,9 +644,32 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     <span class="config-badge">🤖 {n_bots} bots</span>
   </div>
 
-  <!-- Overview table -->
+  <!-- Overview tables -->
   <section id="overview" class="mb-5">
-    <div class="section-title">Overview</div>
+    <div class="section-title">Hard Wins — 1st Place</div>
+    <p class="text-muted small mb-2">A <strong>hard win</strong> means the bot was the first to empty their hand.
+      Baseline ≈ {hard_base:.1%} (1 / avg players).</p>
+    <div class="table-responsive mb-5">
+      <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm">
+        <thead>
+          <tr>
+            <th class="text-center">#</th>
+            <th>Bot</th>
+            <th class="text-end">Total games</th>
+            <th class="text-end">Hard Wins</th>
+            <th class="text-end">Hard Win %</th>
+            <th class="text-end">Avg cards (hard win)</th>
+            <th class="text-end">vs Baseline</th>
+            <th class="text-end">Avg cards on loss</th>
+          </tr>
+        </thead>
+        <tbody>{hard_rows}</tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Soft Wins — 2nd to n−1</div>
+    <p class="text-muted small mb-2">A <strong>soft win</strong> means the bot finished above last but did not finish 1st.
+      Baseline ≈ {soft_base:.1%} ((avg players − 2) / avg players).</p>
     <div class="table-responsive">
       <table class="table table-hover table-bordered align-middle mb-0 bg-white shadow-sm">
         <thead>
@@ -593,15 +677,14 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
             <th class="text-center">#</th>
             <th>Bot</th>
             <th class="text-end">Total games</th>
-            <th class="text-end">Wins</th>
-            <th class="text-end">Win %</th>
-            <th class="text-end">1st Place %</th>
-            <th class="text-end">Avg cards</th>
+            <th class="text-end">Soft Wins</th>
+            <th class="text-end">Soft Win %</th>
+            <th class="text-end">Avg cards (soft win)</th>
             <th class="text-end">vs Baseline</th>
-            <th class="text-end">Avg on loss</th>
+            <th class="text-end">Avg cards on loss</th>
           </tr>
         </thead>
-        <tbody>{table_rows}</tbody>
+        <tbody>{soft_rows}</tbody>
       </table>
     </div>
   </section>
