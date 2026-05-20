@@ -120,7 +120,7 @@ To create your AI, you need to create a class that extends the PlayerAI class. E
 
 ## Test your AI
 
-To test your AI, refer to `experiments.py`. Import your bot and add it to the ALGORITHM list. Then execute the script using `python experiments.py`; the results will be saved in `all_games.yaml`. Additionally, you can generate various plots using `graphs/stats.py`.
+To test your AI, refer to `experiments.py`. Import your bot and add it to the ALGORITHM list. Then execute the script using `python experiments.py`; the results will be saved in `all_games.yaml` and an HTML report will be generated.
 
 # Experiments
 
@@ -130,12 +130,7 @@ This is a multiplayer game, so it's complex to have a general score to associate
 
 Here you'll find a comprehensive list of all the bots utilized in this experiment, followed by an assessment of their performance.
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/RandomBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>RandomBoi</b></p>
-    </div>
-</div>
+### RandomBoi
 
 - In the **initial hand**, decides with a 50% chance whether to bluff or play honestly.
 - In the **regular hands**: 
@@ -143,12 +138,7 @@ Here you'll find a comprehensive list of all the bots utilized in this experimen
   - otherwise, it has a 50% chance of bluffing or doubting.
 Plays one card at a time.
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/AlwaysTruthful.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>AlwaysTruthful</b></p>
-    </div>
-</div>
+### AlwaysTruthful
 
 - In the **initial hand** play truthfully.
 - In the **regular hands**: 
@@ -156,12 +146,7 @@ Plays one card at a time.
   - otherwise, doubt.
 Tries to maximize the amout of cards played
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/MrNoDoubt.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>MrNoDoubt</b></p>
-    </div>
-</div>
+### MrNoDoubt
 
 - In the **initial hand** play truthfully.
 - In the **regular hands**: 
@@ -169,34 +154,19 @@ Tries to maximize the amout of cards played
   - otherwise, bluffs.
 Tries to maximize the amout of cards played
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/JustPutCards.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>JustPutCards</b></p>
-    </div>
-</div>
+### JustPutCards
 
 - In the **initial hand** bluffs placing 3 random cards.
 - In the **regular hands**: bluffs placing 3 random cards.
 Tries to maximize the amout of cards played
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/MrDoubt.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>MrDoubt</b></p>
-    </div>
-</div>
+### MrDoubt
 
 - In the **initial hand** decides with a 50% chance whether to bluff or play honestly.
 - In the **regular hands** doubt.
 Tries to maximize the amout of cards played
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/AdaptyBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>AdaptyBoi</b></p>
-    </div>
-</div>
+### AdaptyBoi
 
 Tailors its gameplay based on the players around it.
 - In the **initial hand**, if the next player doubts a lot, then it will play honestly; otherwise, it will try to bluff.
@@ -208,42 +178,23 @@ Tailors its gameplay based on the players around it.
         - Otherwise, it bluffs.
     - Otherwise, it doubts.
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/SusBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>SusBoi</b></p>
-    </div>
-</div>
+### SusBoi
 
 - In the **initial hand** there is a 67% probability of bluffing otherwise is honest
 - In the **regular hands** Doubt with higher probability  if the previous player plays a lot of cards (0.3 for 1 card, 0.6 for 2 card and 0.9 for 3 cards) otherwise there is a 67% probability of bluffing otherwise is honest.
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/RiskCounter.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>RiskCounter</b></p>
-    </div>
-</div>
+### RiskCounter
 
 Aggressive when the streak is low otherwise Honest. Calculates the risk value considering: the number of cards held by the next player, the number of cards held by the bot, and the streak.
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/StefaBot.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>StefaBot</b></p>
-    </div>
-</div>
+### StefaBot
 
 - If prev_player was playing first turn, then doubt
 - If prev_player was not playing first turn then check the number of cards of prev_player
   - if prev_player has played 3 cards doubt,
   - otherwise then with 50% probability be honest or doubt
 
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>ClaudeBot</b></p>
-    </div>
-</div>
+### ClaudeBot
 
 A score-based bot that tries to make the mathematically correct decision at each node.
 
@@ -282,98 +233,11 @@ A score-based bot that tries to make the mathematically correct decision at each
 
 # Result
 
-The overall results are depicted on this plot.
-
-![Winrate](graphs/win_rate_bar_graph.png)
-
-We can also examine the remaining cards per game:
-
-![Remaining Cards](graphs/avg_cards_bar_graph.png)
+The overall results are depicted in the HTML report (run the experiments to generate it).
 
 ## Individual Results
 
-Here, instead, we can observe the individual performance of each bot.
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/RandomBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>RandomBoi</b></p>
-    </div>
-</div>
-
-![RandomBoi](graphs/RandomBoi_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/AlwaysTruthful.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>AlwaysTruthful</b></p>
-    </div>
-</div>
-
-![AlwaysTruthful](graphs/AlwaysTruthful_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/MrNoDoubt.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>MrNoDoubt</b></p>
-    </div>
-</div>
-
-![MrNoDoubt](graphs/MrNoDoubt_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/JustPutCards.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>JustPutCards</b></p>
-    </div>
-</div>
-
-![JustPutCards](graphs/JustPutCards_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/AdaptyBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>AdaptyBoi</b></p>
-    </div>
-</div>
-
-![AdaptyBoi](graphs/AdaptyBoi_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/SusBoi.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>SusBoi</b></p>
-    </div>
-</div>
-
-![SusBoi](graphs/SusBoi_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/UsualBot.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>UsualBot</b></p>
-    </div>
-</div>
-
-![UsualBot](graphs/UsualBot_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/RiskCounter.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>RiskCounter</b></p>
-    </div>
-</div>
-
-![RiskCounter](graphs/RiskCounter_win_rate_comparison.png)
-
-<div style="display: flex; align-items: center; margin-top: 40px; margin-bottom: 5px;">
-    <img src="imgs/StefaBot.png" width="50"  style="border-radius: 50%; margin-bottom: 12px; border: 4px solid lightblue;">
-    <div style="margin-left: 20px; font-size: 32px;">
-        <p><b>StefaBot</b></p>
-    </div>
-</div>
-
-![StefaBot](graphs/StefaBot_win_rate_comparison.png)
+The HTML report includes per-bot breakdowns showing win rates against each neighbor bot.
 
 # Final Conclusion
 - The game heavily depends on the chosen **position** at the beginning of the match and consequently on the players preceding and succeeding you. 
