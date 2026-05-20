@@ -105,7 +105,7 @@ class GameHandler:
     def get_latest_played_cards(self) -> list[int]:
         return self.board.latests
     
-    def get_current_number(self) -> list[int]:
+    def get_current_number(self) -> int:
         return self.board.number
     
     def is_honest(self) -> bool:

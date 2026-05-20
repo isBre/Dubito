@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import random
 from .hand import Hand
-from .game_data import TurnOutput
+from .game_data import TurnData, TurnOutput
 
 
 class Player(ABC):
@@ -20,16 +20,16 @@ class Player(ABC):
         self.id = id
     
     @abstractmethod
-    def play(self, turn_infos: dict) -> dict:
+    def play(self, turn_infos: TurnData) -> TurnOutput:
         """
         Abstract method representing the player's move during their turn.
         Must be implemented by subclasses.
 
         Args:
-            turn_infos (dict): Information about the current game state.
+            turn_infos (TurnData): Information about the current game state.
 
         Returns:
-            OutputPlayerRecorder: Information about the player's move.
+            TurnOutput: Information about the player's move.
         """
         pass
 
@@ -38,7 +38,7 @@ class Player(ABC):
         Adds new cards to the player's hand.
 
         Args:
-            new_cards (List): List of new cards to be added to the player's hand.
+            new_cards (list): List of new cards to be added to the player's hand.
         """
         self.cards.add(new_cards)
 
@@ -104,99 +104,94 @@ class PlayerAI(Player):
         self.uncertainty_value = 0.05
         super().__init__(id)
         
-    def can_play_truthfully(self, input_player: dict) -> bool:
+    def can_play_truthfully(self, input_player: TurnData) -> bool:
         """
         Checks if the AI player can play truthfully based on the current game state.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Returns:
             bool: True if the AI player can play truthfully, False otherwise.
         """
         return self.cards.has(input_player.current_number)
     
-    def is_first_turn(self, input_player: dict) -> bool:
+    def is_first_turn(self, input_player: TurnData) -> bool:
         """
         Checks if it's the first turn of the game.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Returns:
             bool: True if it's the first turn, False otherwise.
         """
         return input_player.board_cards == 0
     
-    def prev_player_started_turn(self, input_player: dict) -> bool:
+    def prev_player_started_turn(self, input_player: TurnData) -> bool:
         """
         Checks if the previous player started the current turn.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Returns:
             bool: True if the previous player started the turn, False otherwise.
         """
         return input_player.n_cards_played == input_player.board_cards
 
-    def play(self, input_player: dict) -> dict:
+    def play(self, input_player: TurnData) -> TurnOutput:
         """
         Main method to determine the AI player's move during its turn.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Returns:
-            dict: Information about the AI player's move.
+            TurnOutput: Information about the AI player's move.
         """
         if self.is_first_turn(input_player):
             return self.play_first_turn(input_player)
         else:
             return self.play_regular_turn(input_player)
 
-    def play_first_turn(self, input_player: dict) -> dict:
+    def play_first_turn(self, input_player: TurnData) -> TurnOutput:
         """
-        Abstract method representing the AI player's move on the first turn.
-        Must be implemented by subclasses.
+        Method representing the AI player's move on the first turn.
+        Must be overridden by subclasses that need custom first-turn logic.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Raises:
             NotImplementedError: If the method is not implemented by the subclass.
         """
         raise NotImplementedError("Subclasses must implement play_first_turn method.")
 
-    def play_regular_turn(self, input_player: dict) -> dict:
+    def play_regular_turn(self, input_player: TurnData) -> TurnOutput:
         """
-        Abstract method representing the AI player's move on regular turns.
-        Must be implemented by subclasses.
+        Method representing the AI player's move on regular turns.
+        Must be overridden by subclasses that need custom regular-turn logic.
 
         Args:
-            input_player (dict): Information provided to the AI about the game state.
+            input_player (TurnData): Information provided to the AI about the game state.
 
         Raises:
             NotImplementedError: If the method is not implemented by the subclass.
         """
         raise NotImplementedError("Subclasses must implement play_regular_turn method.")
 
-    def doubt(self, input_player: dict, uncertainty : bool) -> dict:
-        '''
-        Doubt Decision for AI Player
-
+    def doubt(self, input_player: TurnData, uncertainty: bool) -> TurnOutput:
+        """
         Determines whether the player should doubt the previous player's move.
 
-        Parameters:
-            input_player (dict): Information provided to the AI about the game state.
-            uncertainty (bool): Flag indicating uncertainty about the previous player's move.
+        Args:
+            input_player (TurnData): Information provided to the AI about the game state.
+            uncertainty (bool): When True, a small random chance of switching to a play instead.
 
         Returns:
-            dict: Decision dictionary containing:
-                - doubt: Boolean indicating whether to doubt.
-                - number: Number declared by the player (if first hand).
-                - cards: Cards played by the player.
-        '''
+            TurnOutput: Decision with doubt=True, or a play if uncertainty kicks in.
+        """
         if uncertainty:
             if random.random() > self.uncertainty_value:
                 return TurnOutput(doubt=True, number=None, cards=None)
@@ -208,24 +203,19 @@ class PlayerAI(Player):
         else:
             return TurnOutput(doubt=True, number=None, cards=None)
     
-    def bluff(self, input_player: dict, first_turn: bool, uncertainty : bool, maximize: bool) -> dict:
-        '''
-        Bluff Decision for AI Player
+    def bluff(self, input_player: TurnData, first_turn: bool, uncertainty: bool, maximize: bool) -> TurnOutput:
+        """
+        Produces a bluff play — random cards declared as the current number.
 
-        Determines whether the player should bluff by playing cards.
-
-        Parameters:
-            input_player (dict): Information provided to the AI about the game state.
-            first_turn (bool): Flag indicating if it's the player's first turn.
-            uncertainty (bool): Flag indicating uncertainty about the previous player's move.
-            maximize (bool): Flag indicating whether to maximize the bluff.
+        Args:
+            input_player (TurnData): Information provided to the AI about the game state.
+            first_turn (bool): True if this is the opening hand (player picks the number).
+            uncertainty (bool): When True, a small random chance of switching to a truthful play or doubt.
+            maximize (bool): True to play 3 cards, False to play a random amount (1–3).
 
         Returns:
-            dict: Decision dictionary containing:
-                - doubt: Boolean indicating whether to doubt.
-                - number: Number declared by the player (if first turn).
-                - cards: Cards played by the player.
-        '''
+            TurnOutput: A play action with randomly chosen cards.
+        """
         if uncertainty:
             if not random.random() > self.uncertainty_value:
                 if first_turn:
@@ -243,24 +233,19 @@ class PlayerAI(Player):
 
         return TurnOutput(doubt=False, number=random_number if first_turn else None, cards=random_cards)
     
-    def play_truthfully(self, input_player: dict, first_turn : bool, uncertainty : bool, maximize : bool) -> dict:
-        '''
-        Truthful Play Decision for AI Player
+    def play_truthfully(self, input_player: TurnData, first_turn: bool, uncertainty: bool, maximize: bool) -> TurnOutput:
+        """
+        Produces a truthful play — only matching cards are played.
 
-        Determines whether the player should play truthfully by selecting cards.
-
-        Parameters:
-            input_player (dict): Information provided to the AI about the game state.
-            first_turn (bool): Flag indicating if it's the player's first turn.
-            uncertainty (bool): Flag indicating uncertainty about the previous player's move.
-            maximize (bool): Flag indicating whether to maximize the truthfulness.
+        Args:
+            input_player (TurnData): Information provided to the AI about the game state.
+            first_turn (bool): True if this is the opening hand (player picks the number).
+            uncertainty (bool): When True, a small random chance of switching to a bluff or doubt.
+            maximize (bool): True to play all matching cards, False to play a random subset.
 
         Returns:
-            dict: Decision dictionary containing:
-                - doubt: Boolean indicating whether to doubt.
-                - number: Number declared by the player (if first turn).
-                - cards: Cards played by the player.
-        '''
+            TurnOutput: A play action with cards that match the declared number.
+        """
         if uncertainty:
             if not random.random() > self.uncertainty_value:
                 if first_turn:

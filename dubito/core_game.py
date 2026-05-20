@@ -1,4 +1,5 @@
 import random
+from collections import Counter
 from pprint import pprint
 
 from .player import Player
@@ -44,16 +45,16 @@ def assign_cards(deck: list[int], players: list[Player]):
     for i, card in enumerate(deck):
         players[i % len(players)].add_cards([card])
 
-def has_n_equal_elements(card_counts: list[int], n: int):
+def has_n_equal_elements(card_counts: Counter, n: int) -> bool:
     """
-    Checks if any element in the list `card_counts` has a value greater than or equal to `n`.
+    Checks if any card in the counter has a count greater than or equal to `n`.
 
     Args:
-        card_counts (list[int]): A list of integers representing counts of elements.
-        n (int): The value to compare each element against.
+        card_counts (Counter): A Counter mapping card values to their counts.
+        n (int): The minimum count to check against.
 
     Returns:
-        bool: True if any element in `card_counts` has a value greater than or equal to `n`, False otherwise.
+        bool: True if any card appears at least `n` times, False otherwise.
     """
     occurencies = list(card_counts.values())
     return any(occ >= n for occ in occurencies)
@@ -97,9 +98,11 @@ def dubito(
 
     Parameters:
         all_players (list[Player]): List of Player objects participating in the game.
-        shuffle_players (bool, optional): Flag to shuffle player positions. Defaults to True.
-        deck_size (int, optional): Size of the deck. Defaults to 14.
-        n_jollies (int, optional): Number of joker cards added to the deck. Defaults to 2.
+        shuffle_players (bool): Flag to shuffle player positions. Defaults to True.
+        deck_size (int): Size of the deck. Defaults to 14.
+        n_jollies (int): Number of joker cards added to the deck. Defaults to 2.
+        max_turns (int): Safety cap on the number of turns. Defaults to 1_000.
+            If reached, all remaining players are treated as losers.
 
     Returns:
         tuple[dict, dict]: A tuple containing two dictionaries:
@@ -233,7 +236,7 @@ def dubito(
             discarded_cards = p.discard_cards()
             if discarded_cards:
                 logger += f"Player{p.id} removed: {discarded_cards}\n"
-                # discarded_cards is always a group of 4 identical cards
+                # discarded_cards is a list of unique card values that were removed
                 _emit(game_handler.playing_players(), DiscardEvent(
                     player_id=p.id,
                     card_number=discarded_cards[0],

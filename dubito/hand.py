@@ -135,7 +135,7 @@ class Hand:
         """
         return self.hand.count(number)
 
-    def discard(self, amount = 4) -> list[int]:
+    def discard(self, amount: int = 4) -> list[int]:
         """
         Discard cards that appear a specific number of times in the hand.
 
