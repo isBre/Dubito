@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from dubito.player import PlayerAI
+from dubito.game_data import TurnData, TurnOutput
 
 
 class BotBase(PlayerAI):
@@ -29,21 +30,21 @@ class BotBase(PlayerAI):
     # A — First hand: bluff or honest?
     # ------------------------------------------------------------------
     @abstractmethod
-    def bluff_first_hand(self, input_player: dict) -> bool:
+    def bluff_first_hand(self, input_player: TurnData) -> bool:
         """Return True to bluff, False to play honestly."""
 
     # ------------------------------------------------------------------
     # B — First hand: maximize cards played?
     # ------------------------------------------------------------------
     @abstractmethod
-    def maximize_first_hand(self, input_player: dict) -> bool:
+    def maximize_first_hand(self, input_player: TurnData) -> bool:
         """Return True to play as many cards as possible, False for a random amount (1–3)."""
 
     # ------------------------------------------------------------------
     # C — Regular turn: doubt or play?
     # ------------------------------------------------------------------
     @abstractmethod
-    def should_doubt(self, input_player: dict) -> bool:
+    def should_doubt(self, input_player: TurnData) -> bool:
         """Return True to challenge the previous player, False to play cards."""
 
     # ------------------------------------------------------------------
@@ -52,27 +53,27 @@ class BotBase(PlayerAI):
     #     When the current number is not in hand, bluff is forced by the rules.
     # ------------------------------------------------------------------
     @abstractmethod
-    def bluff_regular(self, input_player: dict) -> bool:
+    def bluff_regular(self, input_player: TurnData) -> bool:
         """Return True to bluff, False to play honestly. Only called when honest play is possible."""
 
     # ------------------------------------------------------------------
     # E — Regular turn: maximize cards played?
     # ------------------------------------------------------------------
     @abstractmethod
-    def maximize_regular(self, input_player: dict) -> bool:
+    def maximize_regular(self, input_player: TurnData) -> bool:
         """Return True to play as many cards as possible, False for a random amount (1–3)."""
 
     # ------------------------------------------------------------------
     # Framework — wires A–E into the PlayerAI protocol
     # ------------------------------------------------------------------
 
-    def play_first_turn(self, input_player: dict) -> dict:
+    def play_first_turn(self, input_player: TurnData) -> TurnOutput:
         maximize = self.maximize_first_hand(input_player)       # B
         if self.bluff_first_hand(input_player):                 # A
             return self.bluff(input_player, first_turn=True, uncertainty=False, maximize=maximize)
         return self.play_truthfully(input_player, first_turn=True, uncertainty=False, maximize=maximize)
 
-    def play_regular_turn(self, input_player: dict) -> dict:
+    def play_regular_turn(self, input_player: TurnData) -> TurnOutput:
         if self.should_doubt(input_player):                     # C
             return self.doubt(input_player, uncertainty=False)
         maximize = self.maximize_regular(input_player)          # E
