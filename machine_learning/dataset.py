@@ -1,31 +1,49 @@
+from dubito.game_data import honest_times, dishonest_times, doubts_count, turns_count
+
 
 class DubitoDataset:
     def __init__(self) -> None:
         self.who = []
         self.data = []
-    
-    def add_data(self, hand: list, who: str, input_player, output_player: dict) -> None:
-        in_keys = ['board_cards', 'playing_cards', 'current_number', 'n_cards_played', 'streak']
-        pl_keys = ['turns', 'not_first_turns', 'doubts', 'honest_times', 'dishonest_times', 'n_cards']
-        ou_keys = ['doubt', 'number', 'cards']
-        data_list = []
-        data_list.append(hand)
-        data_list.extend([getattr(input_player, k) for k in in_keys])
-        data_list.extend([getattr(input_player.prev, k) for k in pl_keys])
-        data_list.extend([getattr(input_player.next, k) for k in pl_keys])
-        data_list.extend([getattr(output_player, k) for k in ou_keys])
-        data_list.append(-1)
-        
+
+    def add_data(self, hand: list, who: str, input_player, output_player) -> None:
+        prev_id = input_player.prev_player_id
+        next_id = input_player.next_player_id
+        h = input_player.history
+
+        data_list = [
+            hand,
+            input_player.board_cards,
+            input_player.playing_cards,
+            input_player.current_number,
+            input_player.n_cards_played,
+            input_player.streak,
+            # prev player stats (derived from history)
+            turns_count(prev_id, h),
+            doubts_count(prev_id, h),
+            honest_times(prev_id, h),
+            dishonest_times(prev_id, h),
+            input_player.player_card_counts.get(prev_id, 0),
+            # next player stats (derived from history)
+            turns_count(next_id, h),
+            doubts_count(next_id, h),
+            honest_times(next_id, h),
+            dishonest_times(next_id, h),
+            input_player.player_card_counts.get(next_id, 0),
+            # output
+            output_player.doubt,
+            output_player.number,
+            output_player.cards,
+            -1,  # result placeholder
+        ]
+
         self.data.append(data_list)
         self.who.append(who)
-    
-    def add_result(self, winners : list, losers : list) -> None:
-        winners = [w.id for w in winners]
+
+    def add_result(self, winners: list, losers: list) -> None:
+        winner_ids = [w.id for w in winners]
         for pl, dt in zip(self.who, self.data):
-            if pl in winners:
-                dt[-1] = 1
-            else:
-                dt[-1] = 0
-    
-    def get_dataset(self) -> tuple[list, list]:
+            dt[-1] = 1 if pl in winner_ids else 0
+
+    def get_dataset(self) -> list:
         return self.data

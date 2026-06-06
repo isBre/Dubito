@@ -1,6 +1,6 @@
 import random
 from bots.base import BotBase
-from dubito.game_data import TurnData
+from dubito.game_data import TurnData, honest_times, dishonest_times, doubts_count, turns_count
 
 
 class AdaptyBoi(BotBase):
@@ -22,7 +22,7 @@ class AdaptyBoi(BotBase):
 
     def should_doubt(self, p: TurnData) -> bool:
         if random.random() >= self.prev_honesty_prob:
-            return True  # prev is bluffing → doubt
+            return True
         if random.random() < self.next_doubt_prob and not self.can_play_truthfully(p):
             return self.prev_honesty_prob <= self.next_doubt_prob
         return False
@@ -33,12 +33,18 @@ class AdaptyBoi(BotBase):
     def maximize_regular(self, p: TurnData) -> bool: return True
 
     def _update(self, p: TurnData) -> None:
-        total = p.prev.honest_times + p.prev.dishonest_times
+        prev_id = p.prev_player_id
+        h = honest_times(prev_id, p.history)
+        d = dishonest_times(prev_id, p.history)
+        total = h + d
         if total > 0:
-            ratio = p.prev.honest_times / total
+            ratio = h / total
             self.prev_honesty_prob = min(1 - self.uncertainty_value, max(self.uncertainty_value, ratio))
-        if p.next.not_first_turns > 0:
-            ratio = p.next.doubts / p.next.not_first_turns
+
+        next_id = p.next_player_id
+        next_turns = turns_count(next_id, p.history)
+        if next_turns > 0:
+            ratio = doubts_count(next_id, p.history) / next_turns
             self.next_doubt_prob = min(1 - self.uncertainty_value, max(self.uncertainty_value, ratio))
 
 
@@ -71,7 +77,7 @@ class UsualBot(BotBase):
     def should_doubt(self, p: TurnData) -> bool:
         if self.prev_player_started_turn(p):
             return False
-        if p.prev.n_cards == 0:
+        if p.player_card_counts.get(p.prev_player_id, 0) == 0:
             return True
         threshold = self._DOUBT_THRESHOLDS.get(p.n_cards_played, 0)
         return random.random() < threshold
@@ -95,7 +101,7 @@ class RiskCounter(BotBase):
     def maximize_first_hand(self, p: TurnData) -> bool: return True
 
     def should_doubt(self, p: TurnData) -> bool:
-        if p.prev.n_cards == 0:
+        if p.player_card_counts.get(p.prev_player_id, 0) == 0:
             return True
         return random.random() >= self.risk and not self.can_play_truthfully(p)
 
@@ -107,6 +113,7 @@ class RiskCounter(BotBase):
             if self.all_equal():
                 self.risk = 1.0
             else:
-                self.risk = max(0, min(0.99, -(1/30) * p.next.n_cards**2 + 1))
+                next_cards = p.player_card_counts.get(p.next_player_id, 0)
+                self.risk = max(0, min(0.99, -(1/30) * next_cards**2 + 1))
         else:
             self.risk = max(0, min(0.99, (1/40) * p.board_cards**2))
