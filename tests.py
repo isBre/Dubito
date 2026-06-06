@@ -1,7 +1,13 @@
 import unittest
+from collections import Counter
 from dubito.hand import Hand
 from dubito.handlers import GameHandler, StatsHandler, generate_player_data
-from dubito.core_game import create_deck, assign_cards, initialize, dubito
+from dubito.core_game import (
+    create_deck, assign_cards, initialize, dubito,
+    has_n_equal_elements,
+    _resolve_doubt, _handle_play, _process_end_of_turn,
+)
+from dubito.game_data import DoubtResolvedEvent, CardsPlayedEvent, DiscardEvent, PlayerWonEvent
 from bots.manual.rule_based import AlwaysTruthful, MrDoubt, MrNoDoubt, RandomBoi
 
 
@@ -711,6 +717,205 @@ class TestTwoLoserRule(unittest.TestCase):
             winner_ids = {p.id for p in result['winners']}
             loser_ids  = {p.id for p in result['losers']}
             self.assertTrue(winner_ids.isdisjoint(loser_ids))
+
+
+# ---------------------------------------------------------------------------
+# has_n_equal_elements
+# ---------------------------------------------------------------------------
+
+class TestHasNEqualElements(unittest.TestCase):
+
+    def test_returns_true_when_count_equals_n(self):
+        c = Counter({5: 4, 3: 2})
+        self.assertTrue(has_n_equal_elements(c, 4))
+
+    def test_returns_true_when_count_exceeds_n(self):
+        c = Counter({7: 5})
+        self.assertTrue(has_n_equal_elements(c, 4))
+
+    def test_returns_false_when_all_counts_below_n(self):
+        c = Counter({1: 3, 2: 2, 3: 1})
+        self.assertFalse(has_n_equal_elements(c, 4))
+
+    def test_returns_false_for_empty_counter(self):
+        self.assertFalse(has_n_equal_elements(Counter(), 4))
+
+    def test_exactly_one_qualifying_card(self):
+        c = Counter({1: 1, 2: 1, 3: 4})
+        self.assertTrue(has_n_equal_elements(c, 4))
+        self.assertFalse(has_n_equal_elements(c, 5))
+
+
+# ---------------------------------------------------------------------------
+# _resolve_doubt
+# ---------------------------------------------------------------------------
+
+def _setup_game_for_doubt(board_cards, current_number=5, n_players=3):
+    players = [MrNoDoubt(i) for i in range(n_players)]
+    gh = GameHandler(all_players=players, deck_size=14)
+    stats = StatsHandler(all_players=players)
+    gh.set_current_number(current_number)
+    gh.set_board_cards(board_cards)
+    gh.players.prev = players[0]
+    gh.players.this = players[1]
+    return gh, stats, players
+
+
+class TestResolveDoubt(unittest.TestCase):
+
+    def test_honest_play_gives_cards_to_doubter(self):
+        gh, stats, players = _setup_game_for_doubt([5, 5])
+        doubter, bluffer = players[1], players[0]
+        cards_before = len(doubter.cards)
+        replay, log = _resolve_doubt(gh, doubter, bluffer, stats)
+        self.assertFalse(replay)
+        self.assertEqual(len(doubter.cards), cards_before + 2)
+        self.assertEqual(gh.get_board(), [])
+
+    def test_dishonest_play_gives_cards_to_bluffer(self):
+        gh, stats, players = _setup_game_for_doubt([5, 3])
+        doubter, bluffer = players[1], players[0]
+        cards_before = len(bluffer.cards)
+        replay, log = _resolve_doubt(gh, doubter, bluffer, stats)
+        self.assertTrue(replay)
+        self.assertEqual(len(bluffer.cards), cards_before + 2)
+        self.assertEqual(gh.get_board(), [])
+
+    def test_joker_honest_discards_joker_doubter_gets_rest(self):
+        gh, stats, players = _setup_game_for_doubt([0, 5])
+        doubter, bluffer = players[1], players[0]
+        cards_before = len(doubter.cards)
+        replay, log = _resolve_doubt(gh, doubter, bluffer, stats)
+        self.assertFalse(replay)
+        self.assertEqual(len(doubter.cards), cards_before + 1)  # joker discarded, gets 1 card
+        self.assertIn('Joker revealed', log)
+
+    def test_board_reset_after_doubt(self):
+        gh, stats, players = _setup_game_for_doubt([5, 5])
+        _resolve_doubt(gh, players[1], players[0], stats)
+        self.assertEqual(gh.get_board(), [])
+        self.assertEqual(gh.get_current_number(), 0)
+
+    def test_doubt_event_appended(self):
+        gh, stats, players = _setup_game_for_doubt([5, 3])
+        _resolve_doubt(gh, players[1], players[0], stats)
+        self.assertTrue(any(isinstance(e, DoubtResolvedEvent) for e in gh.history))
+
+    def test_stats_doubts_incremented(self):
+        gh, stats, players = _setup_game_for_doubt([5, 5])
+        _resolve_doubt(gh, players[1], players[0], stats)
+        self.assertEqual(stats.data[players[1].id]['doubts'], 1)
+
+    def test_stats_honesty_incremented_on_honest_play(self):
+        gh, stats, players = _setup_game_for_doubt([5, 5])
+        _resolve_doubt(gh, players[1], players[0], stats)
+        self.assertEqual(stats.data[players[0].id]['honest_times'], 1)
+
+    def test_stats_dishonesty_and_successful_doubt_incremented(self):
+        gh, stats, players = _setup_game_for_doubt([5, 3])
+        _resolve_doubt(gh, players[1], players[0], stats)
+        self.assertEqual(stats.data[players[0].id]['dishonest_times'], 1)
+        self.assertEqual(stats.data[players[1].id]['successful_doubts'], 1)
+
+
+# ---------------------------------------------------------------------------
+# _handle_play
+# ---------------------------------------------------------------------------
+
+def _setup_game_for_play(n_players=3):
+    players = [MrNoDoubt(i) for i in range(n_players)]
+    gh = GameHandler(all_players=players, deck_size=14)
+    stats = StatsHandler(all_players=players)
+    gh.players.prev = players[0]
+    gh.players.this = players[1]
+    return gh, stats, players
+
+
+class TestHandlePlay(unittest.TestCase):
+
+    def test_first_hand_sets_current_number(self):
+        from dubito.game_data import TurnOutput
+        gh, stats, players = _setup_game_for_play()
+        output = TurnOutput(doubt=False, number=7, cards=[7])
+        _handle_play(gh, players[1], output, stats)
+        self.assertEqual(gh.get_current_number(), 7)
+
+    def test_cards_placed_on_board(self):
+        from dubito.game_data import TurnOutput
+        gh, stats, players = _setup_game_for_play()
+        gh.set_current_number(3)
+        gh.set_board_cards([3])  # simulate non-first-hand
+        output = TurnOutput(doubt=False, number=None, cards=[3, 3])
+        _handle_play(gh, players[1], output, stats)
+        self.assertIn(3, gh.get_board())
+        self.assertEqual(gh.n_cards_board(), 3)
+
+    def test_cards_played_event_appended(self):
+        from dubito.game_data import TurnOutput
+        gh, stats, players = _setup_game_for_play()
+        output = TurnOutput(doubt=False, number=5, cards=[5])
+        _handle_play(gh, players[1], output, stats)
+        self.assertTrue(any(isinstance(e, CardsPlayedEvent) for e in gh.history))
+
+    def test_stats_cards_played_tracked(self):
+        from dubito.game_data import TurnOutput
+        gh, stats, players = _setup_game_for_play()
+        output = TurnOutput(doubt=False, number=5, cards=[5, 5])
+        _handle_play(gh, players[1], output, stats)
+        self.assertEqual(stats.data[players[1].id]['total_cards_played'], 2)
+        self.assertEqual(stats.data[players[1].id]['play_turns'], 1)
+
+    def test_bluff_tracked_in_stats(self):
+        from dubito.game_data import TurnOutput
+        gh, stats, players = _setup_game_for_play()
+        gh.set_current_number(5)
+        gh.set_board_cards([5])  # move past first hand
+        output = TurnOutput(doubt=False, number=None, cards=[3])  # 3 ≠ 5 → bluff
+        _handle_play(gh, players[1], output, stats)
+        self.assertEqual(stats.data[players[1].id]['bluffs'], 1)
+
+
+# ---------------------------------------------------------------------------
+# _process_end_of_turn
+# ---------------------------------------------------------------------------
+
+class TestProcessEndOfTurn(unittest.TestCase):
+
+    def test_winner_detected_when_player_has_no_cards(self):
+        players = [MrNoDoubt(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        gh.next_turn()
+        gh.players.this = players[1]
+        # give player[0] no cards (hand is already empty from GameHandler init)
+        log = _process_end_of_turn(gh)
+        # players[0] starts with empty hand so they should be detected as winners
+        self.assertIn(players[0], gh.get_winners())
+
+    def test_discard_event_appended_when_four_of_a_kind(self):
+        players = [MrNoDoubt(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        gh.next_turn()
+        gh.players.this = players[1]
+        players[0].add_cards([9, 9, 9, 9])
+        _process_end_of_turn(gh)
+        self.assertTrue(any(isinstance(e, DiscardEvent) for e in gh.history))
+
+    def test_player_won_event_appended_when_no_cards(self):
+        players = [MrNoDoubt(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        gh.next_turn()
+        gh.players.this = players[1]
+        _process_end_of_turn(gh)
+        self.assertTrue(any(isinstance(e, PlayerWonEvent) for e in gh.history))
+
+    def test_no_discard_event_when_no_four_of_a_kind(self):
+        players = [MrNoDoubt(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        gh.next_turn()
+        gh.players.this = players[1]
+        players[0].add_cards([1, 2, 3])
+        _process_end_of_turn(gh)
+        self.assertFalse(any(isinstance(e, DiscardEvent) for e in gh.history))
 
 
 if __name__ == '__main__':

@@ -2,7 +2,6 @@ import random
 from collections import Counter
 
 from .player import Player
-from bots.manual.rule_based import AlwaysTruthful, MrNoDoubt, MrDoubt, JustPutCards, RandomBoi
 from .handlers import GameHandler, StatsHandler, generate_player_data
 from .game_data import CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent, GameStartEvent
 from machine_learning.dataset import DubitoDataset
@@ -74,6 +73,117 @@ def initialize(all_players: list[Player], deck_size: int = 14, n_jollies: int = 
 
 
 
+def _resolve_doubt(
+        game_handler: GameHandler,
+        this_player: Player,
+        prev_player: Player,
+        stats_handler: StatsHandler,
+) -> tuple[bool, str]:
+    """Resolves a doubt action. Returns (replay_turn, log_snippet)."""
+    log = f'Player{this_player.id} ({this_player.__class__.__name__}) doubt Player{prev_player.id} ({prev_player.__class__.__name__})!\n'
+    stats_handler.increase_player_doubts(this_player)
+
+    latest_cards_snap = list(game_handler.get_latest_played_cards())
+    full_board_snap = list(game_handler.get_board())
+    declared_snap = game_handler.get_current_number()
+    jokers_played = game_handler.jokers_in_latest()
+
+    if game_handler.is_honest() and jokers_played:
+        board_cards = list(game_handler.get_board())
+        for j in jokers_played:
+            board_cards.remove(j)
+        this_player.add_cards(board_cards)
+        stats_handler.increase_player_honesty(prev_player)
+        log += f"Joker revealed! Player{this_player.id} ({this_player.__class__.__name__}) gets {len(board_cards)} cards, {len(jokers_played)} joker(s) discarded!\n"
+        event = DoubtResolvedEvent(
+            doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+            latest_cards=latest_cards_snap, board_cards=board_cards,
+            declared_number=declared_snap, jokers_discarded=len(jokers_played),
+        )
+        replay = False
+
+    elif game_handler.is_honest():
+        this_player.add_cards(game_handler.get_board())
+        stats_handler.increase_player_honesty(prev_player)
+        log += f"Player{this_player.id} ({this_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
+        event = DoubtResolvedEvent(
+            doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+            latest_cards=latest_cards_snap, board_cards=full_board_snap,
+            declared_number=declared_snap,
+        )
+        replay = False
+
+    else:
+        prev_player.add_cards(game_handler.get_board())
+        stats_handler.increase_player_dishonesty(prev_player)
+        stats_handler.increase_player_successful_doubts(this_player)
+        log += f"Player{prev_player.id} ({prev_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
+        event = DoubtResolvedEvent(
+            doubter_id=this_player.id, target_id=prev_player.id, correct=True,
+            latest_cards=latest_cards_snap, board_cards=full_board_snap,
+            declared_number=declared_snap,
+        )
+        replay = True
+
+    game_handler.reset_board()
+    game_handler.append_event(event)
+    return replay, log
+
+
+def _handle_play(
+        game_handler: GameHandler,
+        this_player: Player,
+        output,
+        stats_handler: StatsHandler,
+) -> str:
+    """Handles a card-play action. Returns a log snippet."""
+    log = ""
+    if game_handler.is_first_hand():
+        new_value = output.number
+        if new_value == 0:
+            pool = game_handler.board.availables or output.cards
+            new_value = random.choice(pool)
+        game_handler.set_current_number(new_value)
+        log += f"Player{this_player.id} call number {new_value}\n"
+
+    new_cards = output.cards
+    game_handler.set_board_cards(new_cards)
+    stats_handler.add_player_cards_played(this_player, len(new_cards))
+    if not game_handler.is_honest():
+        stats_handler.increase_player_bluffs(this_player)
+    log += f"Player{this_player.id} play {new_cards}\n"
+    game_handler.append_event(CardsPlayedEvent(
+        player_id=this_player.id,
+        declared_number=game_handler.get_current_number(),
+        n_cards=len(new_cards),
+    ))
+    return log
+
+
+def _process_end_of_turn(game_handler: GameHandler) -> str:
+    """Runs discards and winner detection. Returns a log snippet."""
+    log = ""
+    for p in game_handler.playing_players():
+        discarded_cards = p.discard_cards()
+        if discarded_cards:
+            log += f"Player{p.id} removed: {discarded_cards}\n"
+            game_handler.append_event(DiscardEvent(
+                player_id=p.id,
+                card_number=discarded_cards[0],
+            ))
+        game_handler.set_discarded_cards(discarded_cards)
+
+    for winner in [p for p in game_handler.playing_players() if p.has_no_cards()]:
+        log += f"Player{winner.id} Won!\n"
+        game_handler.set_winners(winner)
+        log += f"{game_handler.n_playing_players()} Players remaining!\n"
+        game_handler.append_event(PlayerWonEvent(
+            player_id=winner.id,
+            position=len(game_handler.get_winners()),
+        ))
+    return log
+
+
 def dubito(
         all_players: list[Player],
         shuffle_players: bool = True,
@@ -81,7 +191,6 @@ def dubito(
         n_jollies: int = 2,
         max_turns: int = 1_000,
 ) -> tuple[dict, dict]:
-
     """
     Simulates a game of Dubito, a dynamic card game for 3-8 players.
     Each player takes turns either making a play or doubting the previous player's move until only one player remains.
@@ -99,10 +208,10 @@ def dubito(
             - game_result: Contains information about the winners and losers of the game.
             - game_infos: Contains logs and decisions made during the game.
     """
-
     logger = ""
 
-    if shuffle_players: random.shuffle(all_players)
+    if shuffle_players:
+        random.shuffle(all_players)
     initialize(all_players, deck_size, n_jollies)
 
     logger += f'\n{len(all_players)} Players are playing: {[f"Player{player.id}" for player in all_players]}'
@@ -141,89 +250,13 @@ def dubito(
 
         if output.doubt and game_handler.is_first_hand():
             raise Exception(f"Player{this_player.id} cannot doubt in the first round")
-
         elif output.doubt:
-            stats_handler.increase_player_doubts(this_player)
-            logger += f'Player{this_player.id} ({this_player.__class__.__name__}) doubt Player{prev_player.id} ({prev_player.__class__.__name__})!\n'
-
-            latest_cards_snap = list(game_handler.get_latest_played_cards())
-            full_board_snap = list(game_handler.get_board())
-            declared_snap = game_handler.get_current_number()
-
-            jokers_played = game_handler.jokers_in_latest()
-            if game_handler.is_honest() and jokers_played:
-                board_cards = list(game_handler.get_board())
-                for j in jokers_played:
-                    board_cards.remove(j)
-                this_player.add_cards(board_cards)
-                stats_handler.increase_player_honesty(prev_player)
-                logger += f"Joker revealed! Player{this_player.id} ({this_player.__class__.__name__}) gets {len(board_cards)} cards, {len(jokers_played)} joker(s) discarded!\n"
-                doubt_event = DoubtResolvedEvent(
-                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
-                    latest_cards=latest_cards_snap, board_cards=board_cards,
-                    declared_number=declared_snap, jokers_discarded=len(jokers_played),
-                )
-            elif game_handler.is_honest():
-                this_player.add_cards(game_handler.get_board())
-                stats_handler.increase_player_honesty(prev_player)
-                logger += f"Player{this_player.id} ({this_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
-                doubt_event = DoubtResolvedEvent(
-                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
-                    latest_cards=latest_cards_snap, board_cards=full_board_snap,
-                    declared_number=declared_snap,
-                )
-            else:
-                replay_turn = True
-                prev_player.add_cards(game_handler.get_board())
-                stats_handler.increase_player_dishonesty(prev_player)
-                stats_handler.increase_player_successful_doubts(this_player)
-                logger += f"Player{prev_player.id} ({prev_player.__class__.__name__}) get all ({game_handler.n_cards_board()}) the cards!\n"
-                doubt_event = DoubtResolvedEvent(
-                    doubter_id=this_player.id, target_id=prev_player.id, correct=True,
-                    latest_cards=latest_cards_snap, board_cards=full_board_snap,
-                    declared_number=declared_snap,
-                )
-            game_handler.reset_board()
-            game_handler.append_event(doubt_event)
-
+            replay_turn, doubt_log = _resolve_doubt(game_handler, this_player, prev_player, stats_handler)
+            logger += doubt_log
         else:
-            if game_handler.is_first_hand():
-                new_value = output.number
-                if new_value == 0:
-                    pool = game_handler.board.availables or output.cards
-                    new_value = random.choice(pool)
-                game_handler.set_current_number(new_value)
-                logger += f"Player{this_player.id} call number {new_value}\n"
-            new_cards = output.cards
-            game_handler.set_board_cards(new_cards)
-            stats_handler.add_player_cards_played(this_player, len(new_cards))
-            if not game_handler.is_honest():
-                stats_handler.increase_player_bluffs(this_player)
-            logger += f"Player{this_player.id} play {new_cards}\n"
-            game_handler.append_event(CardsPlayedEvent(
-                player_id=this_player.id,
-                declared_number=game_handler.get_current_number(),
-                n_cards=len(new_cards),
-            ))
+            logger += _handle_play(game_handler, this_player, output, stats_handler)
 
-        for p in game_handler.playing_players():
-            discarded_cards = p.discard_cards()
-            if discarded_cards:
-                logger += f"Player{p.id} removed: {discarded_cards}\n"
-                game_handler.append_event(DiscardEvent(
-                    player_id=p.id,
-                    card_number=discarded_cards[0],
-                ))
-            game_handler.set_discarded_cards(discarded_cards)
-
-        for winner in [p for p in game_handler.playing_players() if p.has_no_cards()]:
-            logger += f"Player{winner.id} Won!\n"
-            game_handler.set_winners(winner)
-            logger += f"{game_handler.n_playing_players()} Players remaining!\n"
-            game_handler.append_event(PlayerWonEvent(
-                player_id=winner.id,
-                position=len(game_handler.get_winners()),
-            ))
+        logger += _process_end_of_turn(game_handler)
 
     logger += f"\n------ End Game ------"
     if game_handler.turn.counter >= max_turns:
@@ -237,12 +270,3 @@ def dubito(
     game_infos = {'logs': logger, 'decisions': dataset_handler.get_dataset(), 'stats': stats_handler}
 
     return game_result, game_infos
-
-
-if __name__ == "__main__":
-    value = dubito(
-        all_players=[AlwaysTruthful(1), MrNoDoubt(2), JustPutCards(3), RandomBoi(4), MrDoubt(5)],
-        shuffle_players=False,
-    )
-    results, infos = value
-    print(infos['decisions'])
