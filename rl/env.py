@@ -53,8 +53,12 @@ from collections import Counter
 
 from dubito.player import PlayerAI
 from dubito.hand import Hand
-from dubito.game_data import TurnOutput, TurnData
-from dubito.handlers import GameHandler, StatsHandler, generate_player_data
+from dubito.game_data import (
+    TurnOutput, TurnData, GameStartEvent, CardsPlayedEvent,
+    DoubtResolvedEvent, DiscardEvent, PlayerWonEvent,
+    honest_times, dishonest_times, doubts_count, turns_count,
+)
+from dubito.handlers import GameHandler, generate_player_data
 from dubito.core_game import initialize
 from bots import rule_based, probability
 
@@ -76,38 +80,37 @@ N_ACTIONS = 7
 OBS_DIM   = 60
 MAX_TURNS = 1_000
 
-# Realistic upper bounds for the Box (not theoretical maxima).
-# Continuous features that VecNormalize will rescale at runtime.
 _PLAYER_STATS_HIGH = [30.0, 200.0, 1.0, 1.0, 1.0]  # n_cards, turns, doubt_r, honest_r, caught_r
 
 _OBS_HIGH = np.array(
-    [4.0] * 14 +               # hand counts (0=joker, 1..13)
-    [3.0, 2.0,                 # n_matching, n_jokers
-     1.0,                      # is_first_hand {0,1}
-     30.0, 30.0, 3.0,          # my_n_cards, board_cards, n_cards_played
-     1.0, 30.0, 8.0] +         # jokers_in_last_play {0,1}, streak, n_players
-    [1.0] * 14 +               # current_number one-hot
-    [1.0] * 13 +               # available_numbers binary
-    _PLAYER_STATS_HIGH * 2,    # prev + next player stats
+    [4.0] * 14 +
+    [3.0, 2.0,
+     1.0,
+     30.0, 30.0, 3.0,
+     1.0, 30.0, 8.0] +
+    [1.0] * 14 +
+    [1.0] * 13 +
+    _PLAYER_STATS_HIGH * 2,
     dtype=np.float32,
 )
 
 
 # ── observation helpers ───────────────────────────────────────────────────────
 
-def _player_stats_vec(pdata) -> np.ndarray:
-    """5-dim stats for a neighbouring player.
-    Counts (n_cards, turns) are left raw; rates are naturally in [0, 1].
-    VecNormalize will handle the counts; rates need no rescaling.
-    """
-    turns = max(pdata.turns, 1)
-    plays = max(pdata.turns - pdata.doubts, 1)
+def _player_stats_vec(player_id: int, n_cards: int, history: list) -> np.ndarray:
+    """5-dim stats for a neighbouring player, derived from event history."""
+    t = turns_count(player_id, history)
+    d = doubts_count(player_id, history)
+    h = honest_times(player_id, history)
+    c = dishonest_times(player_id, history)
+    t_safe = max(t, 1)
+    plays_safe = max(t - d, 1)
     return np.array([
-        float(pdata.n_cards),
-        float(pdata.turns),
-        pdata.doubts          / turns,   # doubt rate        ∈ [0, 1]
-        pdata.honest_times    / turns,   # caught-honest rate ∈ [0, 1]
-        pdata.dishonest_times / plays,   # caught-bluff rate  ∈ [0, 1]
+        float(n_cards),
+        float(t),
+        d / t_safe,     # doubt rate       ∈ [0, 1]
+        h / t_safe,     # honesty rate     ∈ [0, 1]
+        c / plays_safe, # caught-bluff rate ∈ [0, 1]
     ], dtype=np.float32)
 
 
@@ -120,7 +123,6 @@ def build_obs(
 
     current_num = int(turn_data.current_number)
 
-    # hand counts [0:14] — raw integers, index 0 = joker, 1..13 = face values
     for card in hand:
         if 0 <= card <= 13:
             obs[card] += 1.0
@@ -130,25 +132,31 @@ def build_obs(
 
     obs[14] = float(n_matching)
     obs[15] = float(n_jokers)
-    obs[16] = float(turn_data.board_cards == 0)   # is_first_hand  {0,1}
-    obs[17] = float(turn_data.my_n_cards)
+    obs[16] = float(turn_data.board_cards == 0)
+    obs[17] = float(len(turn_data.my_cards))
     obs[18] = float(turn_data.board_cards)
     obs[19] = float(turn_data.n_cards_played)
-    obs[20] = float(jokers_in_last_play)           # {0, 1}
+    obs[20] = float(jokers_in_last_play)
     obs[21] = float(turn_data.streak)
     obs[22] = float(turn_data.n_players)
 
-    # current_number one-hot [23:37]  (values 0..13)
     if 0 <= current_num <= 13:
         obs[23 + current_num] = 1.0
 
-    # available numbers binary mask [37:50]  (values 1..13)
     for n in turn_data.playing_cards:
         if 1 <= n <= 13:
             obs[36 + n] = 1.0
 
-    obs[50:55] = _player_stats_vec(turn_data.prev)
-    obs[55:60] = _player_stats_vec(turn_data.next)
+    obs[50:55] = _player_stats_vec(
+        turn_data.prev_player_id,
+        turn_data.player_card_counts.get(turn_data.prev_player_id, 0),
+        turn_data.history,
+    )
+    obs[55:60] = _player_stats_vec(
+        turn_data.next_player_id,
+        turn_data.player_card_counts.get(turn_data.next_player_id, 0),
+        turn_data.history,
+    )
 
     return obs
 
@@ -165,60 +173,47 @@ def action_to_output(action: int, player: PlayerAI, turn_data: TurnData, is_firs
     jokers      = [c for c in hand if c == 0]
     non_jokers  = [c for c in hand if c != 0]
 
-    # Doubt on first hand is illegal → remap to Honest-1
     if action == 0 and is_first:
         action = 1
 
-    # ── Doubt ────────────────────────────────────────────────────────────────
     if action == 0:
         return TurnOutput(doubt=True, number=None, cards=None)
 
-    # ── Determine quantity and intent ─────────────────────────────────────────
-    #   1,2,3 = honest 1/2/3+    4,5,6 = bluff 1/2/3
     is_bluff = action >= 4
-    qty      = action if not is_bluff else action - 3   # 1, 2, or 3
+    qty      = action if not is_bluff else action - 3
 
-    # ── First hand ────────────────────────────────────────────────────────────
     if is_first:
         if not is_bluff:
-            # Honest: pick `qty` of the most common face-value card, declare it.
             counts = Counter(non_jokers)
             if counts:
                 best_val, best_cnt = counts.most_common(1)[0]
                 n_face = min(qty, 3, best_cnt)
                 cards  = player.cards.pick(best_val, n_face)
-                # fill remainder with jokers — total must not exceed 3
                 n_need = min(qty, 3) - len(cards)
                 if n_need > 0 and jokers:
                     cards += player.cards.pick(0, min(n_need, len(jokers)))
                 return TurnOutput(doubt=False, number=best_val, cards=cards)
             else:
-                # only jokers in hand — play one, declare a random available number
                 cards  = player.cards.pick(0, min(qty, len(jokers)))
                 pool   = turn_data.playing_cards or list(range(1, 14))
                 number = random.choice(pool)
                 return TurnOutput(doubt=False, number=number, cards=cards)
         else:
-            # Bluff: pick `qty` random cards, declare a number that ≠ any of them
             n     = min(qty, len(hand))
             cards = player.cards.pick_random(n)
             pool  = turn_data.playing_cards or list(range(1, 14))
-            # prefer declaring a number not in the cards we just played (to maximise deception)
             played_vals  = set(cards)
             mismatches   = [v for v in pool if v not in played_vals]
             number       = random.choice(mismatches) if mismatches else random.choice(pool)
             return TurnOutput(doubt=False, number=number, cards=cards)
 
-    # ── Regular hand ─────────────────────────────────────────────────────────
     matching = [c for c in hand if c == current_num]
 
     if not is_bluff:
         if not matching and not jokers:
-            # Forced bluff: no matching cards and no jokers → play random cards
             n     = min(qty, 3, len(hand))
             cards = player.cards.pick_random(n)
         else:
-            # Honest: play up to qty matching cards, then pad with jokers — hard cap 3
             n_face = min(qty, 3, len(matching))
             cards  = player.cards.pick(current_num, n_face)
             n_need = min(qty, 3) - len(cards)
@@ -226,7 +221,6 @@ def action_to_output(action: int, player: PlayerAI, turn_data: TurnData, is_firs
                 cards += player.cards.pick(0, min(n_need, len(jokers)))
         return TurnOutput(doubt=False, number=None, cards=cards)
     else:
-        # Bluff: play non-matching, non-joker cards (jokers are always honest)
         bluff_pool = [c for c in hand if c != current_num and c != 0]
         if bluff_pool:
             n     = min(qty, len(bluff_pool))
@@ -234,7 +228,6 @@ def action_to_output(action: int, player: PlayerAI, turn_data: TurnData, is_firs
             for c in cards:
                 player.cards.hand.remove(c)
         else:
-            # all cards are matching or jokers → fall back to random
             n     = min(qty, len(hand))
             cards = player.cards.pick_random(n)
         return TurnOutput(doubt=False, number=None, cards=cards)
@@ -273,11 +266,10 @@ class DubitoEnv(gym.Env):
             dtype=np.float32,
         )
 
-        self._n_players_fixed = n_players          # None → random 3-7 each episode
+        self._n_players_fixed = n_players
         self._pool            = opponent_pool or OPPONENT_POOL
 
-        self._game_handler:  GameHandler   | None = None
-        self._stats_handler: StatsHandler  | None = None
+        self._game_handler:  GameHandler    | None = None
         self._rl_player:     _RLPlayerProxy | None = None
         self._all_players:   list           | None = None
         self._prev_player                          = None
@@ -301,11 +293,15 @@ class DubitoEnv(gym.Env):
 
         initialize(self._all_players, deck_size=14, n_jollies=2)
         self._game_handler  = GameHandler(self._all_players, deck_size=14)
-        self._stats_handler = StatsHandler(self._all_players)
         self._correct_doubt        = False
         self._done                 = False
         self._prev_player          = None
         self._jokers_in_last_play  = False
+
+        self._game_handler.append_event(GameStartEvent(
+            player_ids=[p.id for p in self._all_players],
+            initial_card_counts={p.id: len(p.cards) for p in self._all_players},
+        ))
 
         obs, _ = self._advance_to_rl_turn()
         return obs, {}
@@ -335,7 +331,6 @@ class DubitoEnv(gym.Env):
     def _advance_to_rl_turn(self) -> tuple[np.ndarray, bool]:
         """Run opponents' turns until it is the RL agent's turn. Returns (obs, game_over)."""
         gh = self._game_handler
-        sh = self._stats_handler
 
         while gh.n_winners_players() < 1 and gh.turn.counter < MAX_TURNS:
             if not self._correct_doubt:
@@ -344,16 +339,13 @@ class DubitoEnv(gym.Env):
                 self._correct_doubt = False
                 this_player = gh.players.this
 
-            sh.increase_turns_played(this_player, gh.is_first_hand())
-
             if this_player is self._rl_player:
-                td  = generate_player_data(gh, sh)
+                td  = generate_player_data(gh)
                 self._rl_player._pending_turn = td
                 obs = build_obs(td, list(self._rl_player.cards.hand), self._jokers_in_last_play)
                 return obs, False
 
-            # opponent acts
-            td     = generate_player_data(gh, sh)
+            td     = generate_player_data(gh)
             output = this_player.play(td)
             _, terminated = self._apply_move(output, this_player)
             if terminated:
@@ -364,53 +356,70 @@ class DubitoEnv(gym.Env):
     def _apply_move(self, output: TurnOutput, this_player) -> tuple[float, bool]:
         """Apply a TurnOutput to the game state. Returns (reward, game_over_for_rl_agent)."""
         gh   = self._game_handler
-        sh   = self._stats_handler
         prev = self._prev_player
 
-        # Safety: doubt on first hand → convert to a 1-card honest play
         if output.doubt and gh.is_first_hand():
             is_first  = True
-            fake_td   = self._rl_player._pending_turn or generate_player_data(gh, sh)
+            fake_td   = self._rl_player._pending_turn or generate_player_data(gh)
             output    = action_to_output(1, this_player, fake_td, is_first)
 
         if output.doubt:
-            sh.increase_player_doubts(this_player)
+            latest_snap = list(gh.get_latest_played_cards())
+            board_snap  = list(gh.get_board())
+            declared    = gh.get_current_number()
             jokers_played = gh.jokers_in_latest()
-            self._jokers_in_last_play = False   # reset after doubt resolves
+            self._jokers_in_last_play = False
+
             if jokers_played:
                 board = list(gh.get_board())
                 for j in jokers_played:
                     board.remove(j)
                 this_player.add_cards(board)
-                sh.increase_player_honesty(prev)
+                gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev.id, correct=False,
+                    latest_cards=latest_snap, board_cards=board,
+                    declared_number=declared, jokers_discarded=len(jokers_played),
+                ))
             elif gh.is_honest():
                 this_player.add_cards(gh.get_board())
-                sh.increase_player_honesty(prev)
+                gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev.id, correct=False,
+                    latest_cards=latest_snap, board_cards=board_snap,
+                    declared_number=declared,
+                ))
             else:
                 self._correct_doubt = True
                 prev.add_cards(gh.get_board())
-                sh.increase_player_dishonesty(prev)
-                sh.increase_player_successful_doubts(this_player)
-            gh.reset_board()
+                gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev.id, correct=True,
+                    latest_cards=latest_snap, board_cards=board_snap,
+                    declared_number=declared,
+                ))
 
         else:
             if gh.is_first_hand():
                 num = output.number or random.choice(gh.board.availables or [1])
                 gh.set_current_number(num)
             gh.set_board_cards(output.cards)
-            sh.add_player_cards_played(this_player, len(output.cards))
-            if not gh.is_honest():
-                sh.increase_player_bluffs(this_player)
-            # track whether jokers were just played (for next player's observation)
             self._jokers_in_last_play = bool(gh.jokers_in_latest())
+            gh.append_event(CardsPlayedEvent(
+                player_id=this_player.id,
+                declared_number=gh.get_current_number(),
+                n_cards=len(output.cards),
+            ))
 
-        # discard phase
         for p in gh.playing_players():
-            gh.set_discarded_cards(p.discard_cards())
+            discarded = p.discard_cards()
+            gh.set_discarded_cards(discarded)
+            if discarded:
+                gh.append_event(DiscardEvent(player_id=p.id, card_number=discarded[0]))
 
-        # win check
         if prev is not None and prev.has_no_cards():
             gh.set_winners(prev)
+            gh.append_event(PlayerWonEvent(player_id=prev.id, position=gh.n_winners_players()))
             if prev is self._rl_player:
                 return 1.0, True
             if (self._rl_player not in gh.playing_players() and

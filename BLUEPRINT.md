@@ -109,41 +109,59 @@ MY TURN
 
 Every method receives a single `TurnData` object. By convention it is named `p`.
 
-### Turn state
+`TurnData` has two parts: a **certain snapshot** of what the engine knows right now, and a **raw history** of all game events from which anything uncertain must be derived.
+
+### Certain snapshot — engine-verified facts
 
 | Field | Type | Description |
 |---|---|---|
-| `p.board_cards` | `int` | Total cards currently on the board. `0` means the board is empty (first hand). |
-| `p.playing_cards` | `list[int]` | Card values still in circulation (not yet discarded as four-of-a-kind). Shrinks as the game progresses. |
+| `p.my_cards` | `list[int]` | Your current hand. |
 | `p.current_number` | `int` | The number declared by the previous player. `0` if it is the first hand. |
+| `p.board_cards` | `int` | Total cards currently on the board. `0` means the board is empty (first hand). |
 | `p.n_cards_played` | `int` | How many cards the previous player placed this turn (1, 2, or 3). |
-| `p.streak` | `int` | Consecutive turns without a doubt. Resets to 0 after every doubt. Higher = larger board pile. |
+| `p.playing_cards` | `list[int]` | Card values still in circulation (not yet discarded as four-of-a-kind). Shrinks as the game progresses. |
 | `p.n_players` | `int` | Number of players currently still active in the game. |
+| `p.player_card_counts` | `dict[int, int]` | Exact card count for every active player, keyed by player id. |
+| `p.streak` | `int` | Consecutive turns without a doubt. Resets to 0 after every doubt. Higher = larger board pile. |
+| `p.my_player_id` | `int` | Your player id. |
+| `p.prev_player_id` | `int` | Id of the player just before you (the one you can doubt). |
+| `p.next_player_id` | `int` | Id of the player just after you (the one who can doubt you). |
 
-### Yourself
+Common patterns:
+```python
+len(p.my_cards)                              # your card count
+p.player_card_counts[p.prev_player_id]       # prev's card count
+p.player_card_counts[p.next_player_id]       # next's card count
+p.player_card_counts.get(p.prev_player_id, 0) == 0  # prev about to win
+```
+
+### History — raw event log
 
 | Field | Type | Description |
 |---|---|---|
-| `p.my_n_cards` | `int` | Your current card count. |
-| `p.me` | `PlayerData` | Your own historical stats (see PlayerData fields below). |
+| `p.history` | `list[GameEvent]` | Every event since game start, in order. Derive anything uncertain from here. |
 
-### Neighbours
+`game_data.py` exports four helper functions for the most common queries:
 
-`p.prev` is the player who played just before you (the one you can doubt).
-`p.next` is the player who will play after you (the one who can doubt you).
+```python
+from dubito.game_data import honest_times, dishonest_times, doubts_count, turns_count
 
-Both are `PlayerData` objects with these fields:
+honest_times(player_id, p.history)    # times doubted and found honest
+dishonest_times(player_id, p.history) # times caught bluffing
+doubts_count(player_id, p.history)    # times chose to doubt
+turns_count(player_id, p.history)     # total turns taken
 
-| Field | Type | Description |
-|---|---|---|
-| `.n_cards` | `int` | Their current card count. If `p.prev.n_cards == 0`, they are about to win unless doubted. |
-| `.turns` | `int` | Total turns they have played in this game. |
-| `.not_first_turns` | `int` | Turns played on a non-opening hand. Use this as the denominator for doubt rate. |
-| `.doubts` | `int` | Total times they have doubted. `doubts / not_first_turns` = their doubt rate. |
-| `.honest_times` | `int` | Times they were caught being honest when doubted. |
-| `.dishonest_times` | `int` | Times they were caught bluffing when doubted. |
+# Example: prev's bluff rate
+h = honest_times(p.prev_player_id, p.history)
+d = dishonest_times(p.prev_player_id, p.history)
+bluff_rate = d / (h + d) if (h + d) > 0 else 0.5
 
-> **Note on stats**: `honest_times` and `dishonest_times` only accumulate when a player gets *doubted*. A player who never gets doubted will have zeros in both — this does not mean they are honest. Use the ratio `dishonest / (honest + dishonest)` and treat a zero denominator as uncertainty (e.g. assume 0.5).
+# Example: next's doubt rate
+t = turns_count(p.next_player_id, p.history)
+doubt_rate = doubts_count(p.next_player_id, p.history) / t if t > 0 else 0.5
+```
+
+> **Why history instead of pre-computed stats?** Pre-computed fields (like `dishonest_times`) can only tell you aggregate counts. History lets you also see *which cards* were revealed in each doubt resolution — `DoubtResolvedEvent.latest_cards` — which is the richest signal in the game. A bot that tracks revealed cards can estimate what each opponent is likely holding.
 
 ---
 
@@ -159,7 +177,7 @@ These are inherited from the framework. You can call them freely inside your A�
 | `self.cards.count_all()` | `Counter` | A `Counter` of all values in your hand. E.g. `{7: 3, 2: 1, 11: 2}`. |
 | `self.cards.has(n)` | `bool` | True if you hold at least one card of value `n`. |
 | `self.cards.all_equal()` | `bool` | True if every card in your hand has the same value. |
-| `len(self.cards)` | `int` | Total number of cards in your hand (same as `p.my_n_cards`). |
+| `len(self.cards)` | `int` | Total number of cards in your hand (same as `len(p.my_cards)`). |
 
 ### State helpers (read-only — safe to call anywhere)
 
@@ -192,13 +210,22 @@ Each of the 5 methods must return exactly a `bool`. Nothing else. The framework 
 
 ## 6. Game Events
 
-After every game action the engine calls `observe(event)` on **every active player**, not just the one whose turn it is. By default this is a no-op. Override it to maintain an internal belief state about what cards opponents hold.
-
-This is the only way to learn information that `TurnData` alone cannot give you — such as which specific cards a player picked up after a doubt, or that a player definitely no longer holds a certain number after discarding.
+Every game event is stored in `p.history` and available at decision time. Filter or scan the list directly, or use the helper functions from `game_data.py`.
 
 ### Event types
 
 All event classes are importable from `dubito.game_data`.
+
+---
+
+#### `GameStartEvent` — emitted once at the beginning of the game
+
+| Field | Type | Description |
+|---|---|---|
+| `player_ids` | `list[int]` | All player ids, in turn order. |
+| `initial_card_counts` | `dict[int, int]` | Starting card count for each player id. |
+
+> Always the first event in `p.history`. Use it to know initial hand sizes if you want to track card counts from the start.
 
 ---
 
@@ -250,41 +277,6 @@ All event classes are importable from `dubito.game_data`.
 | `position` | `int` | Their finishing position (`1` = first place, `2` = second, …). |
 
 ---
-
-### Using observe()
-
-```python
-from dubito.game_data import (
-    TurnData,
-    CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent,
-)
-
-def observe(self, event) -> None:
-    match event:
-        case DoubtResolvedEvent(correct=True) as e:
-            # Bluffer caught: we know exactly what the bluffer played
-            # and that they now hold all of board_cards
-            self.mark_bluff(e.target_id, e.latest_cards, e.declared_number)
-            self.add_known_cards(e.target_id, e.board_cards)
-
-        case DoubtResolvedEvent(correct=False) as e:
-            # Doubter wrong: target was honest, doubter picks up board
-            # We know the honest cards target played, and exactly what went
-            # into the doubter's hand
-            self.mark_honest(e.target_id, e.latest_cards, e.declared_number)
-            self.add_known_cards(e.loser_id, e.board_cards)
-
-        case DiscardEvent() as e:
-            # Certain: this player no longer holds this number at all
-            self.mark_exhausted(e.player_id, e.card_number)
-
-        case CardsPlayedEvent() as e:
-            # Probabilistic only — update bluff likelihood estimate
-            self.update_prior(e.player_id, e.declared_number, e.n_cards)
-
-        case PlayerWonEvent():
-            pass  # player gone — clean up their belief entry if needed
-```
 
 ---
 
@@ -338,22 +330,6 @@ def _update(self, p: TurnData) -> None:
     ...
 ```
 
-### If you want to track game events across all players' turns
-
-Override `observe()`. It is called automatically for every player after every game action — whether or not it is your turn.
-
-```python
-def observe(self, event) -> None:
-    from dubito.game_data import DoubtResolvedEvent, DiscardEvent
-    match event:
-        case DoubtResolvedEvent() as e:
-            # e.correct, e.target_id, e.latest_cards, e.board_cards …
-            ...
-        case DiscardEvent() as e:
-            # certain: e.player_id no longer holds e.card_number
-            ...
-```
-
 ---
 
 ## 8. Worked example — a complete minimal bot
@@ -378,7 +354,7 @@ class ExampleBot(BotBase):
         return True    # dump as many cards as possible
 
     def should_doubt(self, p: TurnData) -> bool:
-        if p.prev.n_cards == 0:
+        if p.player_card_counts.get(p.prev_player_id, 0) == 0:
             return True              # they're about to win — must stop them
         return p.n_cards_played == 3  # 3 cards played is suspicious
 
@@ -393,28 +369,25 @@ class ExampleBot(BotBase):
 
 ## 9. Key signals and strategic hints
 
-### From TurnData (available every turn)
+### From the certain snapshot (always available)
 
 | Signal | How to compute | What it tells you |
 |---|---|---|
-| Prev's bluff rate | `p.prev.dishonest_times / (p.prev.honest_times + p.prev.dishonest_times)` | How likely prev is bluffing right now. Treat 0-denominator as 0.5 (unknown). |
-| Next's doubt rate | `p.next.doubts / p.next.not_first_turns` | How likely next will doubt you. Treat 0-denominator as 0.5. |
-| Cards I have of current number | `self.cards.count(p.current_number)` | If 0: you must bluff. If ≥ 3: honest play removes as many cards as bluffing. |
-| Prev about to win | `p.prev.n_cards == 0` | They win unless doubted. Always doubt here. |
+| Prev about to win | `p.player_card_counts.get(p.prev_player_id, 0) == 0` | They win unless doubted. Always doubt here. |
 | Prev chose the number | `self.prev_player_started_turn(p)` | They picked the current number → slightly more likely to hold it. |
+| Cards I have of current number | `self.cards.count(p.current_number)` | If 0: you must bluff. If ≥ 3: honest play removes as many cards as bluffing. |
 | Board pile size | `p.board_cards` or `p.streak` | Doubting costs you all these cards if wrong. High streak = big risk. |
-| My card count | `p.my_n_cards` | Low (≤4) → close to winning, play safe. High (≥18) → desperate, take risks. |
+| My card count | `len(p.my_cards)` | Low (≤4) → close to winning, play safe. High (≥18) → desperate, take risks. |
 
-### From observe() (accumulated across the whole game)
+### From history (derive anything uncertain)
 
-| Event | What you can learn |
-|---|---|
-| `DoubtResolvedEvent(correct=True)` | Bluffer's actual cards + exactly which cards they now hold (board pickup). |
-| `DoubtResolvedEvent(correct=False)` | Target was honest + exactly which cards went into the doubter's hand. |
-| `DiscardEvent` | Player definitively holds zero of that number — certain, no inference needed. |
-| `CardsPlayedEvent` | Probabilistic update: N cards declared as X makes holding X more or less likely depending on what you know. |
+| Signal | How to compute | What it tells you |
+|---|---|---|
+| Prev's bluff rate | `dishonest_times(p.prev_player_id, p.history) / (honest + dishonest)` | How likely prev is bluffing right now. Treat 0-denominator as 0.5 (unknown). |
+| Next's doubt rate | `doubts_count(p.next_player_id, p.history) / turns_count(...)` | How likely next will doubt you. Treat 0-denominator as 0.5. |
+| Revealed card knowledge | `[e for e in p.history if isinstance(e, DoubtResolvedEvent)]` | Exact cards shown in each past doubt — the richest inference signal available. |
+| Certain absence | `[e for e in p.history if isinstance(e, DiscardEvent) and e.player_id == pid]` | Any discarded number is definitively gone from that player's hand. |
 
-> **observe() vs TurnData**: `TurnData` gives you a per-turn snapshot with aggregate stats. `observe()` gives you raw events with exact card information. Use both — `TurnData` for fast rule-based decisions, `observe()` for building a richer belief model when the extra complexity pays off.
 
 **Bluff vs honest on a regular turn** — a useful comparison:
 
@@ -449,8 +422,11 @@ class ExampleBot(BotBase):
   from bots.base import BotBase
   from dubito.game_data import TurnData
 
-  # Optional — only if using observe():
-  from dubito.game_data import CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent
+  # Optional — history helpers (use these instead of scanning history manually):
+  from dubito.game_data import honest_times, dishonest_times, doubts_count, turns_count
+
+  # Optional — only if using isinstance() checks on p.history:
+  from dubito.game_data import GameStartEvent, CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent
   ```
 - Bot files live in `bots/manual/` (hand-crafted) or `bots/llms/` (LLM-based).
 - Your class name must match the filename (e.g. `class GeminiBot` in `bots/llms/gemini.py`).

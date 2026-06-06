@@ -11,8 +11,11 @@ import uuid
 from flask import Flask, jsonify, render_template, request
 
 from dubito.player import Player
-from dubito.handlers import GameHandler, StatsHandler, generate_player_data
-from dubito.game_data import TurnOutput, TurnData
+from dubito.handlers import GameHandler, generate_player_data
+from dubito.game_data import (
+    TurnOutput, TurnData,
+    GameStartEvent, CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent,
+)
 from dubito.core_game import initialize
 from bots.manual import rule_based, probability
 from bots.llms import claude as claude_bots
@@ -81,7 +84,6 @@ class GameSession:
     def __init__(self, all_players: list[Player], show_names: bool) -> None:
         self.id           = str(uuid.uuid4())[:8]
         self.gh           = GameHandler(all_players=all_players, deck_size=14)
-        self.sh           = StatsHandler(all_players=all_players)
         self.human        = next(p for p in all_players if isinstance(p, HumanPlayer))
         self.all_players  = all_players
         self.prev_player  = all_players[-1]
@@ -89,6 +91,10 @@ class GameSession:
         self.show_names   = show_names
         self.messages: list[str] = []
         self._correct_doubt = False
+        self.gh.append_event(GameStartEvent(
+            player_ids=[p.id for p in all_players],
+            initial_card_counts={p.id: len(p.cards) for p in all_players},
+        ))
 
     # ── Label helpers ─────────────────────────────────────────────────────────
 
@@ -130,16 +136,13 @@ class GameSession:
             correct_doubt:  True when the doubter was right (they earn a free turn).
         """
         gh = self.gh
-        sh = self.sh
         resolve_events: list[dict] = []
         correct_doubt = False
 
-        if isinstance(this_player, HumanPlayer):
-            sh.increase_turns_played(this_player, gh.is_first_hand())
-
         if output.doubt:
-            sh.increase_player_doubts(this_player)
-            latest_cards = list(gh.get_latest_played_cards())
+            latest_cards  = list(gh.get_latest_played_cards())
+            board_snap    = list(gh.get_board())
+            declared_snap = gh.get_current_number()
             revealed = ', '.join(cn(c) for c in latest_cards)
             jokers = gh.jokers_in_latest()
             takes = "take" if isinstance(this_player, HumanPlayer) else "takes"
@@ -147,8 +150,12 @@ class GameSession:
             if gh.is_honest() and jokers:
                 rest = [c for c in gh.get_board() if c != 0]
                 this_player.add_cards(rest)
-                sh.increase_player_honesty(prev_player)
                 gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+                    latest_cards=latest_cards, board_cards=rest,
+                    declared_number=declared_snap, jokers_discarded=len(jokers),
+                ))
                 resolve_events.append({
                     "msg": (
                         f"Joker! {self._lbl(prev_player)} played [{revealed}] — protected. "
@@ -163,8 +170,12 @@ class GameSession:
             elif gh.is_honest():
                 n = gh.n_cards_board()
                 this_player.add_cards(gh.get_board())
-                sh.increase_player_honesty(prev_player)
                 gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=False,
+                    latest_cards=latest_cards, board_cards=board_snap,
+                    declared_number=declared_snap,
+                ))
                 resolve_events.append({
                     "msg": (
                         f"{self._lbl(prev_player)} was honest — played [{revealed}]. "
@@ -180,8 +191,12 @@ class GameSession:
                 n = gh.n_cards_board()
                 correct_doubt = True
                 prev_player.add_cards(gh.get_board())
-                sh.increase_player_dishonesty(prev_player)
                 gh.reset_board()
+                gh.append_event(DoubtResolvedEvent(
+                    doubter_id=this_player.id, target_id=prev_player.id, correct=True,
+                    latest_cards=latest_cards, board_cards=board_snap,
+                    declared_number=declared_snap,
+                ))
                 resolve_events.append({
                     "msg": (
                         f"{self._lbl(prev_player)} was bluffing — actually played [{revealed}]. "
@@ -201,12 +216,18 @@ class GameSession:
                     val = random.choice(pool)
                 gh.set_current_number(val)
             gh.set_board_cards(output.cards)
+            gh.append_event(CardsPlayedEvent(
+                player_id=this_player.id,
+                declared_number=gh.get_current_number(),
+                n_cards=len(output.cards),
+            ))
 
         # Discard phase
         for p in gh.playing_players():
             disc = p.discard_cards()
             if disc:
                 gh.set_discarded_cards(disc)
+                gh.append_event(DiscardEvent(player_id=p.id, card_number=disc[0]))
                 resolve_events.append({
                     "msg":        f"{self._lbl(p)} discards four {cn(disc[0])}s.",
                     "event_type": "discard",
@@ -218,6 +239,7 @@ class GameSession:
         # Win check
         for winner in [p for p in gh.playing_players() if p.has_no_cards()]:
             gh.set_winners(winner)
+            gh.append_event(PlayerWonEvent(player_id=winner.id, position=gh.n_winners_players()))
             resolve_events.append({
                 "msg":        f"{self._lbl(winner)} wins!",
                 "event_type": "win",
@@ -260,10 +282,9 @@ class GameSession:
             if isinstance(this_player, HumanPlayer):
                 break
 
-            ip = generate_player_data(gh, self.sh)
+            ip = generate_player_data(gh)
             is_first = gh.is_first_hand()
             output = this_player.play(ip)
-            self.sh.increase_turns_played(this_player, is_first)
 
             if output.doubt:
                 pre_snap = self.snap()

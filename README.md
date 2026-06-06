@@ -55,48 +55,63 @@ Every bot is a specific strategy for answering **A–E**. The available signals 
 
 | Signal | Informs | What it tells you |
 |---|---|---|
-| `prev.honest_times` / `prev.dishonest_times` | C | Prev player's historical honesty ratio when doubted |
+| `dishonest_times(prev_id, history)` / `honest_times(prev_id, history)` | C | Prev player's historical honesty ratio when doubted |
 | `n_cards_played` | C | Cards prev just played (1–3); more cards = more suspicious |
-| `prev.n_cards` | C | Prev's remaining cards; 0 means they're about to win → doubt |
+| `player_card_counts[prev_player_id]` | C | Prev's remaining cards; 0 means they're about to win → doubt |
 | `prev_player_started_turn` | C | Prev set the number this round (they went first) |
 | `streak` | C, E | Turns without a doubt; longer = larger pile on the board |
-| `next.doubts` / `next.not_first_turns` | A, D, E | How aggressively the next player doubts; affects how safe you need to be |
-| `next.n_cards` | C, E | Next player's remaining cards |
-| Own hand | A, B, D, E | Which numbers you hold and how many of each |
+| `doubts_count(next_id, history)` / `turns_count(next_id, history)` | A, D, E | How aggressively the next player doubts; affects how safe you need to be |
+| `player_card_counts[next_player_id]` | C, E | Next player's remaining cards |
+| `history` (DoubtResolvedEvent.latest_cards) | all | Actual cards revealed in past doubt resolutions — which numbers each player was holding |
+| Own hand (`my_cards`) | A, B, D, E | Which numbers you hold and how many of each |
 
 ## Input
 
-At each turn the bot receives a `TurnData` dataclass with the following fields.
+At each turn the bot receives a `TurnData` dataclass. It has two parts: a **certain snapshot** of the current game state, and a **raw history** of all events from which anything uncertain must be derived.
 
-**Turn state**
+**Certain snapshot** — engine-verified facts
 
 | Field | Type | Description |
 |---|---|---|
-| `board_cards` | `int` | Cards currently on the board (0 = you are first) |
-| `playing_cards` | `List[int]` | Card numbers still in play (not yet discarded as 4-of-a-kind) |
-| `current_number` | `int` | Number declared by the previous player |
+| `my_cards` | `list[int]` | Your current hand (private) |
+| `current_number` | `int` | Number declared by the previous player (0 on first hand) |
+| `board_cards` | `int` | Total cards on the board |
 | `n_cards_played` | `int` | How many cards the previous player placed |
+| `playing_cards` | `list[int]` | Card numbers still in circulation (not globally discarded) |
+| `n_players` | `int` | Number of players still active |
+| `player_card_counts` | `dict[int, int]` | Exact card count per player id |
 | `streak` | `int` | Consecutive turns without a doubt |
-| `n_players` | `int` | Number of players still active in the game |
+| `my_player_id` | `int` | Your player id |
+| `prev_player_id` | `int` | Id of the player before you |
+| `next_player_id` | `int` | Id of the player after you |
 
-**Self**
-
-| Field | Type | Description |
-|---|---|---|
-| `my_n_cards` | `int` | Your current card count |
-| `me` | `PlayerData` | Your own historical stats (see below) |
-
-**Neighbours** — `prev` (player before you) and `next` (player after you), both `PlayerData`:
+**History** — raw event log for inference
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | `int` | Player identifier |
-| `n_cards` | `int` | Current card count |
-| `turns` | `int` | Total turns played |
-| `not_first_turns` | `int` | Turns played on a non-opening hand |
-| `doubts` | `int` | Times this player doubted |
-| `honest_times` | `int` | Times caught being honest when doubted |
-| `dishonest_times` | `int` | Times caught bluffing when doubted |
+| `history` | `list[GameEvent]` | All events since game start, in order |
+
+The event types are:
+
+| Event | Key fields | What it reveals |
+|---|---|---|
+| `GameStartEvent` | `player_ids`, `initial_card_counts` | Starting configuration |
+| `CardsPlayedEvent` | `player_id`, `declared_number`, `n_cards` | Who played, what they claimed, how many cards |
+| `DoubtResolvedEvent` | `doubter_id`, `target_id`, `correct`, `latest_cards`, `declared_number` | The actual cards that were face-down — revealed on doubt |
+| `DiscardEvent` | `player_id`, `card_number` | Which number was discarded (4-of-a-kind removed) |
+| `PlayerWonEvent` | `player_id`, `position` | Who finished and in what place |
+
+`game_data.py` exports four helper functions for the most common history queries:
+
+```python
+from dubito.game_data import honest_times, dishonest_times, doubts_count, turns_count
+
+honest_times(player_id, history)    # times player was doubted and found honest
+dishonest_times(player_id, history) # times player was caught bluffing
+doubts_count(player_id, history)    # times player chose to doubt
+turns_count(player_id, history)     # total turns taken (plays + doubts)
+```
+
 
 ## Output
 

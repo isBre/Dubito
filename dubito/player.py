@@ -69,10 +69,6 @@ class Player(ABC):
         """
         return len(self.cards)
     
-    def observe(self, event) -> None:
-        """Called for every player after each game event. Override to track game state."""
-        pass
-
     def reset(self) -> None:
         """
         Resets the player's hand to an empty state.
