@@ -1,7 +1,7 @@
 import sys
 
 from .runner import ALL_BOTS, load_config, save_stats, print_summary, play_games
-from .report import generate_html_report
+from .report import generate_html_site
 
 
 if __name__ == '__main__':
@@ -12,8 +12,8 @@ if __name__ == '__main__':
     algorithms        = [ALL_BOTS[name] for name in bot_names]
     available_players = config['available_players']
     n_experiments     = config['n_experiments']
-    output_file       = config.get('output_file', 'all_games.yaml')
-    output_html       = config.get('output_html', 'report.html')
+    output_file = config.get('output_file', 'all_games.yaml')
+    output_dir  = config.get('output_dir', 'report_site')
 
     print(f"Running {n_experiments:,} games with {len(algorithms)} bots "
           f"and {available_players[0]}–{available_players[-1]} players per game.")
@@ -25,5 +25,5 @@ if __name__ == '__main__':
 
     print_summary(final_infos)
 
-    print('\nGenerating HTML report...')
-    generate_html_report(final_infos, config, output_html)
+    print('\nGenerating HTML site...')
+    generate_html_site(final_infos, config, output_dir)
