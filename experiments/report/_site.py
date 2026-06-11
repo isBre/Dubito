@@ -34,31 +34,6 @@ def _all_metrics(players: list, final_infos: dict) -> dict:
     return {b: _metrics(b, final_infos) for b in players}
 
 
-def _insights(players, metrics, hard_base, soft_base, win_base) -> list[str]:
-    top    = players[0]
-    bottom = players[-1]
-    sneaky = max(players, key=lambda b: metrics[b]['bluff_stealth'])
-    sharp  = max(players, key=lambda b: metrics[b]['doubt_accuracy'])
-    bluff  = max(players, key=lambda b: metrics[b]['bluff_rate'])
-    honest = min(players, key=lambda b: metrics[b]['bluff_rate'])
-    return [
-        (f'<strong>{top}</strong> leads the field at '
-         f'{metrics[top]["win_rate"]:.1%} overall win rate '
-         f'({metrics[top]["hard_win_rate"]:.1%} hard, {metrics[top]["soft_win_rate"]:.1%} soft) — '
-         f'{(metrics[top]["win_rate"] - win_base):+.1%} above baseline.'),
-        (f'<strong>{bottom}</strong> is the weakest performer at '
-         f'{metrics[bottom]["win_rate"]:.1%} win rate '
-         f'({(metrics[bottom]["win_rate"] - win_base):+.1%} vs baseline).'),
-        (f'<strong>{sneaky}</strong> is the sneakiest bluffer: '
-         f'{metrics[sneaky]["bluff_stealth"]:.1%} of bluffs go uncaught. '
-         f'<strong>{sharp}</strong> has the sharpest doubt instinct at '
-         f'{metrics[sharp]["doubt_accuracy"]:.1%} accuracy.'),
-        (f'<strong>{bluff}</strong> bluffs most aggressively '
-         f'({metrics[bluff]["bluff_rate"]:.1%} of turns); '
-         f'<strong>{honest}</strong> plays the most honestly '
-         f'({metrics[honest]["bluff_rate"]:.1%}).'),
-    ]
-
 
 def _bot_tips(bot, metrics) -> str:
     m = metrics[bot]
@@ -127,7 +102,7 @@ def _leaderboard_rows(sorted_bots, rate_fn, base, bucket, final_infos, bot_colou
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
 def _page_index(players, final_infos, metrics, bot_colour, baselines,
-                insights_list, config, generated) -> str:
+                config, generated) -> str:
     hard_base, soft_base, win_base = baselines
     n_exp  = config.get('n_experiments', '?')
     ap     = config.get('available_players', [5])
@@ -137,8 +112,7 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
     hard_sorted = sorted(players, key=lambda b: hard_win_rate(final_infos[b]), reverse=True)
     table_rows  = _leaderboard_rows(hard_sorted, hard_win_rate, hard_base, 'hard_wins', final_infos, bot_colour)
 
-    insights_html = ''.join(f'<li>{i}</li>' for i in insights_list)
-    win_scatter   = div(C.win_type_scatter(players, metrics, bot_colour, hard_base, soft_base), height='460px')
+    win_scatter = div(C.win_type_scatter(players, metrics, bot_colour, hard_base, soft_base), height='460px')
 
     bot_cards = ''.join(
         f'<div class="col-6 col-md-4 col-lg-3">'
@@ -158,14 +132,11 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
   <!-- Hero -->
   <div class="mb-4">
     <h1 class="fw-bold mb-1">🎴 Dubito Bot Report</h1>
-    <p class="text-muted lead mb-3">
+    <p class="text-muted lead mb-0">
       Experiment results: <strong>{n_exp:,} games</strong>,
       <strong>{n_bots} bots</strong>,
       <strong>{ap_str} players per game</strong>.
     </p>
-    <div class="alert alert-dark">
-      <ul class="insight-list mb-0">{insights_html}</ul>
-    </div>
   </div>
 
   <!-- Navigation cards -->
@@ -717,7 +688,7 @@ def generate_html_site(final_infos: dict, config: dict, output_dir: str = 'repor
     win_base  = hard_base + soft_base
     baselines = (hard_base, soft_base, win_base)
     generated = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-    insights  = _insights(players, metrics, hard_base, soft_base, win_base)
+
 
     bots_dir = os.path.join(output_dir, 'bots')
     os.makedirs(bots_dir, exist_ok=True)
@@ -726,7 +697,7 @@ def generate_html_site(final_infos: dict, config: dict, output_dir: str = 'repor
         with open(os.path.join(output_dir, path), 'w', encoding='utf-8') as f:
             f.write(content)
 
-    _write('index.html',    _page_index(players, final_infos, metrics, colours, baselines, insights, config, generated))
+    _write('index.html',    _page_index(players, final_infos, metrics, colours, baselines, config, generated))
     _write('strategy.html', _page_strategy(players, final_infos, metrics, colours, baselines, config, generated))
     _write('compare.html',  _page_compare(players, metrics, colours, generated))
 

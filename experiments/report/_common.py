@@ -32,10 +32,6 @@ section{scroll-margin-top:70px}
 table thead th{background:#343a40;color:#fff;white-space:nowrap}
 .section-title{font-size:1.35rem;font-weight:700;border-left:4px solid #4C78A8;padding-left:12px;margin-bottom:.4rem}
 .config-badge{display:inline-block;background:#e9ecef;border-radius:20px;padding:4px 14px;font-size:.85rem;font-weight:600;margin:2px}
-.insight-list{list-style:none;padding:0;margin:0}
-.insight-list li{padding:5px 0 5px 1.5rem;border-bottom:1px solid rgba(255,255,255,.15);position:relative}
-.insight-list li:last-child{border-bottom:none}
-.insight-list li::before{content:"›";position:absolute;left:0;font-weight:700;color:#EECA3B}
 .tip-box{background:#fff8e1;border-left:4px solid #EECA3B;border-radius:6px;padding:12px 16px;font-size:.88rem}
 .nav-card{border:1px solid #e9ecef;border-radius:12px;padding:20px;background:#fff;text-decoration:none;color:inherit;display:block;transition:box-shadow .15s,transform .15s}
 .nav-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px);color:inherit}
