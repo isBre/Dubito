@@ -8,7 +8,10 @@ from dubito.core_game import (
     _resolve_doubt, _handle_play, _process_end_of_turn,
 )
 from dubito.game_data import DoubtResolvedEvent, CardsPlayedEvent, DiscardEvent, PlayerWonEvent
-from bots.manual.rule_based import AlwaysTruthful, MrDoubt, MrNoDoubt, RandomBoi
+from bots.manual.honest_bot import HonestBot
+from bots.manual.trusting_bot import TrustingBot
+from bots.manual.always_doubt_bot import AlwaysDoubtBot
+from bots.manual.random_bot import RandomBot
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +114,7 @@ class TestCreateDeck(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 def _make_game(n_players=4):
-    players = [MrNoDoubt(i) for i in range(n_players)]
+    players = [TrustingBot(i) for i in range(n_players)]
     return GameHandler(all_players=players, deck_size=14), players
 
 
@@ -171,18 +174,18 @@ class TestJokerMechanic(unittest.TestCase):
         # Game ends when 2 players remain → exactly 2 losers
         for _ in range(10):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
                 shuffle_players=True,
                 n_jollies=2,
             )
             self.assertEqual(len(result['losers']), 2)
 
     def test_joker_event_appears_in_logs(self):
-        # MrDoubt always doubts, RandomBoi bluffs randomly — joker events are frequent
+        # AlwaysDoubtBot always doubts, RandomBot bluffs randomly — joker events are frequent
         found = False
         for _ in range(300):
             _, infos = dubito(
-                all_players=[MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[AlwaysDoubtBot(1), RandomBot(2), AlwaysDoubtBot(3), RandomBot(4)],
                 shuffle_players=False,
                 n_jollies=2,
             )
@@ -194,7 +197,7 @@ class TestJokerMechanic(unittest.TestCase):
     def test_game_completes_without_jokers(self):
         for _ in range(10):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
                 shuffle_players=True,
                 n_jollies=0,
             )
@@ -211,33 +214,33 @@ class TestFullGame(unittest.TestCase):
         # Game ends when 2 players remain — both are losers.
         for _ in range(20):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
             )
             self.assertEqual(len(result['losers']), 2)
 
     def test_n_minus_two_winners(self):
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         for _ in range(10):
             result, _ = dubito(all_players=list(players))
             self.assertEqual(len(result['winners']), len(players) - 2)
 
     def test_winner_not_in_losers(self):
         result, _ = dubito(
-            all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+            all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
         )
         winner_ids = {p.id for p in result['winners']}
         loser_ids  = {p.id for p in result['losers']}
         self.assertTrue(winner_ids.isdisjoint(loser_ids))
 
     def test_all_players_accounted_for(self):
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         result, _ = dubito(all_players=players)
         total = len(result['winners']) + len(result['losers'])
         self.assertEqual(total, len(players))
 
     def test_winners_ordered_by_finish(self):
         # winners[0] emptied their hand first; the list must be a permutation of the players
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         result, _ = dubito(all_players=list(players))
         winner_ids = [p.id for p in result['winners']]
         # All winner ids are distinct
@@ -245,7 +248,7 @@ class TestFullGame(unittest.TestCase):
 
     def test_turn_cap_terminates_game(self):
         # With max_turns=1 the game must terminate immediately and account for all players.
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         result, infos = dubito(all_players=list(players), max_turns=1)
         total = len(result['winners']) + len(result['losers'])
         self.assertEqual(total, len(players))
@@ -253,7 +256,7 @@ class TestFullGame(unittest.TestCase):
 
     def test_player_sizes_vary(self):
         for n in range(3, 8):
-            ps = [RandomBoi(i) for i in range(1, n + 1)]
+            ps = [RandomBot(i) for i in range(1, n + 1)]
             result, _ = dubito(all_players=ps)
             self.assertEqual(len(result['winners']) + len(result['losers']), n)
             self.assertEqual(len(result['losers']), 2)
@@ -264,7 +267,7 @@ class TestFullGame(unittest.TestCase):
         # If prev_player won in the previous won-phase, set_winners must not fire again.
         for _ in range(200):
             result, _ = dubito(
-                all_players=[MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[AlwaysDoubtBot(1), RandomBot(2), AlwaysDoubtBot(3), RandomBot(4)],
             )
             total = len(result['winners']) + len(result['losers'])
             self.assertEqual(total, 4)
@@ -418,14 +421,14 @@ class TestDoubtCardDistribution(unittest.TestCase):
 class TestCardDistribution(unittest.TestCase):
 
     def test_assign_cards_distributes_all(self):
-        players = [MrNoDoubt(i) for i in range(4)]
+        players = [TrustingBot(i) for i in range(4)]
         deck = list(range(52))  # arbitrary 52 cards
         assign_cards(deck, players)
         total = sum(len(p.cards) for p in players)
         self.assertEqual(total, 52)
 
     def test_assign_cards_round_robin(self):
-        players = [MrNoDoubt(i) for i in range(4)]
+        players = [TrustingBot(i) for i in range(4)]
         assign_cards([1, 2, 3, 4, 5, 6, 7, 8], players)
         # Each player should have exactly 2 cards
         for p in players:
@@ -433,14 +436,14 @@ class TestCardDistribution(unittest.TestCase):
 
     def test_initialize_no_player_starts_with_four_equal(self):
         for _ in range(10):
-            players = [MrNoDoubt(i) for i in range(4)]
+            players = [TrustingBot(i) for i in range(4)]
             initialize(players, deck_size=14)
             for p in players:
                 counts = p.cards.count_all()
                 self.assertFalse(any(v >= 4 for v in counts.values()))
 
     def test_initialize_distributes_full_deck(self):
-        players = [MrNoDoubt(i) for i in range(4)]
+        players = [TrustingBot(i) for i in range(4)]
         initialize(players, deck_size=14, n_jollies=2)
         total = sum(len(p.cards) for p in players)
         self.assertEqual(total, 54)  # 52 regular + 2 jokers
@@ -486,8 +489,8 @@ class TestWinners(unittest.TestCase):
 class TestStatsTracking(unittest.TestCase):
 
     def test_play_turns_and_cards_counted(self):
-        # AlwaysTruthful never doubts, so play_turns must be positive after a game.
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        # HonestBot never doubts, so play_turns must be positive after a game.
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         _, infos = dubito(all_players=list(players))
         stats = infos['stats'].data
         for p in players:
@@ -498,27 +501,27 @@ class TestStatsTracking(unittest.TestCase):
             self.assertLessEqual(s['play_turns'], s['turns'])
 
     def test_doubts_counted_for_mr_doubt(self):
-        players = [MrDoubt(1), MrNoDoubt(2), MrNoDoubt(3)]
+        players = [AlwaysDoubtBot(1), TrustingBot(2), TrustingBot(3)]
         _, infos = dubito(all_players=list(players), shuffle_players=False)
         stats = infos['stats'].data
-        # MrDoubt always doubts when not first hand; must have at least one doubt
+        # AlwaysDoubtBot always doubts when not first hand; must have at least one doubt
         self.assertGreater(stats[1]['doubts'], 0)
 
     def test_bluffs_tracked(self):
-        # RandomBoi bluffs randomly; across enough games at least one bluff occurs.
+        # RandomBot bluffs randomly; across enough games at least one bluff occurs.
         found = False
         for _ in range(50):
-            players = [RandomBoi(1), RandomBoi(2), RandomBoi(3)]
+            players = [RandomBot(1), RandomBot(2), RandomBot(3)]
             _, infos = dubito(all_players=list(players))
             stats = infos['stats'].data
             if any(stats[p.id]['bluffs'] > 0 for p in players):
                 found = True
                 break
-        self.assertTrue(found, "No bluffs recorded across 50 games with RandomBoi")
+        self.assertTrue(found, "No bluffs recorded across 50 games with RandomBot")
 
     def test_successful_doubts_lte_doubts(self):
         for _ in range(10):
-            players = [MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)]
+            players = [AlwaysDoubtBot(1), RandomBot(2), AlwaysDoubtBot(3), RandomBot(4)]
             _, infos = dubito(all_players=list(players))
             stats = infos['stats'].data
             for p in players:
@@ -526,7 +529,7 @@ class TestStatsTracking(unittest.TestCase):
                 self.assertLessEqual(s['successful_doubts'], s['doubts'])
 
     def test_not_first_turns_lte_turns(self):
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         _, infos = dubito(all_players=list(players))
         stats = infos['stats'].data
         for p in players:
@@ -535,7 +538,7 @@ class TestStatsTracking(unittest.TestCase):
 
     def test_total_cards_played_ge_play_turns(self):
         # Each play turn places at least 1 card, so total_cards_played >= play_turns.
-        players = [AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)]
+        players = [HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)]
         _, infos = dubito(all_players=list(players))
         stats = infos['stats'].data
         for p in players:
@@ -669,7 +672,7 @@ class TestTurnOrderAfterWin(unittest.TestCase):
     def test_no_crash_on_replay_turn_after_soft_win(self):
         for _ in range(200):
             result, _ = dubito(
-                all_players=[MrDoubt(1), RandomBoi(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[AlwaysDoubtBot(1), RandomBot(2), AlwaysDoubtBot(3), RandomBot(4)],
             )
             total = len(result['winners']) + len(result['losers'])
             self.assertEqual(total, 4)
@@ -686,7 +689,7 @@ class TestTwoLoserRule(unittest.TestCase):
         # Soft wins are impossible — there is no middle position.
         for _ in range(30):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), RandomBoi(3)],
+                all_players=[HonestBot(1), TrustingBot(2), RandomBot(3)],
             )
             self.assertEqual(len(result['winners']), 1)
             self.assertEqual(len(result['losers']), 2)
@@ -695,7 +698,7 @@ class TestTwoLoserRule(unittest.TestCase):
         # 1 hard win + 1 soft win + 2 losses
         for _ in range(20):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
             )
             self.assertEqual(len(result['winners']), 2)
             self.assertEqual(len(result['losers']), 2)
@@ -704,7 +707,7 @@ class TestTwoLoserRule(unittest.TestCase):
         # 1 hard win + 2 soft wins + 2 losses
         for _ in range(10):
             result, _ = dubito(
-                all_players=[RandomBoi(i) for i in range(1, 6)],
+                all_players=[RandomBot(i) for i in range(1, 6)],
             )
             self.assertEqual(len(result['winners']), 3)
             self.assertEqual(len(result['losers']), 2)
@@ -712,7 +715,7 @@ class TestTwoLoserRule(unittest.TestCase):
     def test_losers_are_disjoint_from_winners(self):
         for _ in range(20):
             result, _ = dubito(
-                all_players=[AlwaysTruthful(1), MrNoDoubt(2), MrDoubt(3), RandomBoi(4)],
+                all_players=[HonestBot(1), TrustingBot(2), AlwaysDoubtBot(3), RandomBot(4)],
             )
             winner_ids = {p.id for p in result['winners']}
             loser_ids  = {p.id for p in result['losers']}
@@ -751,7 +754,7 @@ class TestHasNEqualElements(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 def _setup_game_for_doubt(board_cards, current_number=5, n_players=3):
-    players = [MrNoDoubt(i) for i in range(n_players)]
+    players = [TrustingBot(i) for i in range(n_players)]
     gh = GameHandler(all_players=players, deck_size=14)
     stats = StatsHandler(all_players=players)
     gh.set_current_number(current_number)
@@ -823,7 +826,7 @@ class TestResolveDoubt(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 def _setup_game_for_play(n_players=3):
-    players = [MrNoDoubt(i) for i in range(n_players)]
+    players = [TrustingBot(i) for i in range(n_players)]
     gh = GameHandler(all_players=players, deck_size=14)
     stats = StatsHandler(all_players=players)
     gh.players.prev = players[0]
@@ -882,7 +885,7 @@ class TestHandlePlay(unittest.TestCase):
 class TestProcessEndOfTurn(unittest.TestCase):
 
     def test_winner_detected_when_player_has_no_cards(self):
-        players = [MrNoDoubt(i) for i in range(3)]
+        players = [TrustingBot(i) for i in range(3)]
         gh = GameHandler(all_players=players, deck_size=14)
         gh.next_turn()
         gh.players.this = players[1]
@@ -892,7 +895,7 @@ class TestProcessEndOfTurn(unittest.TestCase):
         self.assertIn(players[0], gh.get_winners())
 
     def test_discard_event_appended_when_four_of_a_kind(self):
-        players = [MrNoDoubt(i) for i in range(3)]
+        players = [TrustingBot(i) for i in range(3)]
         gh = GameHandler(all_players=players, deck_size=14)
         gh.next_turn()
         gh.players.this = players[1]
@@ -901,7 +904,7 @@ class TestProcessEndOfTurn(unittest.TestCase):
         self.assertTrue(any(isinstance(e, DiscardEvent) for e in gh.history))
 
     def test_player_won_event_appended_when_no_cards(self):
-        players = [MrNoDoubt(i) for i in range(3)]
+        players = [TrustingBot(i) for i in range(3)]
         gh = GameHandler(all_players=players, deck_size=14)
         gh.next_turn()
         gh.players.this = players[1]
@@ -909,7 +912,7 @@ class TestProcessEndOfTurn(unittest.TestCase):
         self.assertTrue(any(isinstance(e, PlayerWonEvent) for e in gh.history))
 
     def test_no_discard_event_when_no_four_of_a_kind(self):
-        players = [MrNoDoubt(i) for i in range(3)]
+        players = [TrustingBot(i) for i in range(3)]
         gh = GameHandler(all_players=players, deck_size=14)
         gh.next_turn()
         gh.players.this = players[1]

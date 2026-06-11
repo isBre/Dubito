@@ -4,7 +4,6 @@ app.py — Flask web backend for Dubito.
 Run:  python3 app.py
 Deps: pip install flask
 """
-import importlib
 import random
 import uuid
 
@@ -17,36 +16,12 @@ from dubito.game_data import (
     GameStartEvent, CardsPlayedEvent, DoubtResolvedEvent, DiscardEvent, PlayerWonEvent,
 )
 from dubito.core_game import initialize
-from bots.manual import rule_based, probability
-from bots.llms import claude as claude_bots
+import bots  # noqa: F401 — populates BotBase.registry
+from bots.base import BotBase
 
 app = Flask(__name__)
 
-
-# ── Bot registry ──────────────────────────────────────────────────────────────
-
-def _try(module, names):
-    try:
-        m = importlib.import_module(module)
-        return {n: getattr(m, n) for n in names if hasattr(m, n)}
-    except (ImportError, ModuleNotFoundError):
-        return {}
-
-ALL_BOTS: dict[str, type] = {
-    "AlwaysTruthful": rule_based.AlwaysTruthful,
-    "JustPutCards":   rule_based.JustPutCards,
-    "MrDoubt":        rule_based.MrDoubt,
-    "MrNoDoubt":      rule_based.MrNoDoubt,
-    "RandomBoi":      rule_based.RandomBoi,
-    "StefaBot":       rule_based.StefaBot,
-    "AdaptyBoi":      probability.AdaptyBoi,
-    "SusBoi":         probability.SusBoi,
-    "UsualBot":       probability.UsualBot,
-    "RiskCounter":    probability.RiskCounter,
-    "ClaudeBot":      claude_bots.ClaudeBot,
-    **_try("bots.llms.chatgpt", ["ChatGPTBot", "ChatGPT_thinking"]),
-    **_try("bots.llms.gemini",  ["GeminiBot"]),
-}
+ALL_BOTS: dict[str, type] = BotBase.registry
 
 
 # ── Card name helpers ─────────────────────────────────────────────────────────
