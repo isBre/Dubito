@@ -163,6 +163,7 @@ cython_debug/
 # Generated reports and outputs
 report.html
 assets/graphs/
+report_site/
 
 # Game data / experiment outputs (large generated files)
 all_games.yaml
