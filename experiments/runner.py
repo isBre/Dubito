@@ -5,28 +5,13 @@ from tqdm import tqdm
 
 from dubito.core_game import dubito
 from dubito.player import Player
-from bots.manual import rule_based, probability
-from bots.llms import claude as claude_bots, chatgpt as chatgpt_bots, gemini as gemini_bots
+import bots  # noqa: F401 — side-effect import: registers all subclasses in BotBase.registry
+from bots.base import BotBase
 
 from .stats import BotStats, BucketStats, make_bot_stats, hard_win_rate, soft_win_rate, safe_div
 
 
-ALL_BOTS = {
-    'AlwaysTruthful':   rule_based.AlwaysTruthful,
-    'JustPutCards':     rule_based.JustPutCards,
-    'MrDoubt':          rule_based.MrDoubt,
-    'MrNoDoubt':        rule_based.MrNoDoubt,
-    'RandomBoi':        rule_based.RandomBoi,
-    'StefaBot':         rule_based.StefaBot,
-    'AdaptyBoi':        probability.AdaptyBoi,
-    'SusBoi':           probability.SusBoi,
-    'UsualBot':         probability.UsualBot,
-    'RiskCounter':      probability.RiskCounter,
-    'ClaudeBot':        claude_bots.ClaudeBot,
-    'ChatGPTBot':       chatgpt_bots.ChatGPTBot,
-    'ChatGPT_thinking': chatgpt_bots.ChatGPT_thinking,
-    'GeminiBot':        gemini_bots.GeminiBot,
-}
+ALL_BOTS = BotBase.registry
 
 
 def load_config(path: str = 'experiment.yaml') -> dict:

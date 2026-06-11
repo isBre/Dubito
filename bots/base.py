@@ -4,6 +4,12 @@ from dubito.game_data import TurnData, TurnOutput
 
 
 class BotBase(PlayerAI):
+    registry: dict[str, type] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        BotBase.registry[cls.__name__] = cls
+
     """
     Structured abstract base for all bots.
 
