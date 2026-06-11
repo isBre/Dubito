@@ -86,30 +86,6 @@ def _bot_tips(bot, metrics) -> str:
     return '<ul class="mb-0">' + ''.join(f'<li>{l}</li>' for l in lines) + '</ul>'
 
 
-# ── Shared table helper ────────────────────────────────────────────────────────
-
-def _leaderboard_rows(sorted_bots, rate_fn, base, bucket, final_infos, bot_colour, prefix='') -> str:
-    rows = ''
-    for rank, bot in enumerate(sorted_bots, 1):
-        info   = final_infos[bot]
-        rate   = rate_fn(info)
-        colour = bot_colour[bot]
-        delta  = rate - base
-        dot    = (f'<span style="display:inline-block;width:11px;height:11px;'
-                  f'border-radius:50%;background:{colour};margin-right:7px;"></span>')
-        rows += f'''
-      <tr>
-        <td class="text-center text-muted">{rank}</td>
-        <td><a href="{prefix}bots/{bot}.html" class="text-decoration-none fw-semibold">{dot}{bot}</a></td>
-        <td class="text-end">{info.total.games:,}</td>
-        <td class="text-end">{getattr(info, bucket).games:,}</td>
-        <td class="text-end fw-bold" style="color:{colour}">{rate:.1%}</td>
-        <td class="text-end">{getattr(info, bucket).avg_cards:.2f}</td>
-        <td class="text-end" style="color:{'#198754' if delta >= 0 else '#dc3545'}">{delta:+.1%}</td>
-        <td class="text-end text-danger">{info.losses.avg_cards:.2f}</td>
-      </tr>'''
-    return rows
-
 
 # ── Overview table (sorted by overall = hard + soft win rate) ─────────────────
 
@@ -628,7 +604,6 @@ def _page_bot(bot, rank, players, final_infos, metrics, bot_colour,
   <div class="col-6 col-md-3">{stat_card(f"{m['doubt_accuracy']:.1%}", "Doubt Accuracy")}</div>
   <div class="col-6 col-md-3">{stat_card(f"{m['cards_per_turn']:.2f}", "Cards per Turn")}</div>
   <div class="col-6 col-md-3">{stat_card(f"{info.losses.avg_cards:.2f}", "Avg cards on loss", "#dc3545")}</div>
-  <div class="col-6 col-md-3">{stat_card(f"{info.hard_wins.avg_cards:.2f}", "Avg cards on win", colour)}</div>
   <div class="col-6 col-md-3">{stat_card(f"{m['avg_position']:.3f}", "Avg relative position")}</div>
 </div>'''
 
