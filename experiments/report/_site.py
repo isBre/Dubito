@@ -12,13 +12,25 @@ from ._common import (
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
+def _score(hwr: float, swr: float) -> float:
+    """Score = hard_win_rate + 0.5 × soft_win_rate.
+
+    Hard wins are worth twice as much as soft wins; losses contribute 0.
+    A random bot scores (1 + 0.5*(n-3)) / n ≈ 0.40 at 5 players.
+    """
+    return hwr + 0.5 * swr
+
+
 def _metrics(bot: str, final_infos: dict) -> dict:
     info = final_infos[bot]
     t    = info.total
+    hwr  = hard_win_rate(info)
+    swr  = soft_win_rate(info)
     return {
+        'score':          _score(hwr, swr),
         'win_rate':       win_rate(info),
-        'hard_win_rate':  hard_win_rate(info),
-        'soft_win_rate':  soft_win_rate(info),
+        'hard_win_rate':  hwr,
+        'soft_win_rate':  swr,
         'loss_rate':      safe_div(info.losses.games, t.games, fallback=1.0),
         'avg_position':   t.total_position,
         'bluff_rate':     safe_div(t.bluffs, t.play_turns),
@@ -101,15 +113,14 @@ def _leaderboard_rows(sorted_bots, rate_fn, base, bucket, final_infos, bot_colou
 
 # ── Overview table (sorted by overall = hard + soft win rate) ─────────────────
 
-def _overview_rows(players, final_infos, metrics, bot_colour, win_base, prefix='') -> str:
+def _overview_rows(players, final_infos, metrics, bot_colour, score_base, prefix='') -> str:
     rows = ''
-    for rank, bot in enumerate(
-        sorted(players, key=lambda b: metrics[b]['win_rate'], reverse=True), 1
-    ):
+    # players already sorted by score from generate_html_site
+    for rank, bot in enumerate(players, 1):
         info   = final_infos[bot]
         m      = metrics[bot]
         colour = bot_colour[bot]
-        delta  = m['win_rate'] - win_base
+        delta  = m['score'] - score_base
         dot    = (f'<span style="display:inline-block;width:11px;height:11px;'
                   f'border-radius:50%;background:{colour};margin-right:7px;"></span>')
         rows += f'''
@@ -117,8 +128,8 @@ def _overview_rows(players, final_infos, metrics, bot_colour, win_base, prefix='
         <td class="text-center text-muted">{rank}</td>
         <td><a href="{prefix}bots/{bot}.html" class="text-decoration-none fw-semibold">{dot}{bot}</a></td>
         <td class="text-end">{info.total.games:,}</td>
-        <td class="text-end fw-bold" style="color:{colour}">{m['win_rate']:.1%}</td>
-        <td class="text-end" style="color:{'#198754' if delta >= 0 else '#dc3545'}">{delta:+.1%}</td>
+        <td class="text-end fw-bold" style="color:{colour}">{m['score']:.3f}</td>
+        <td class="text-end" style="color:{'#198754' if delta >= 0 else '#dc3545'}">{delta:+.3f}</td>
         <td class="text-end">{m['hard_win_rate']:.1%}</td>
         <td class="text-end">{m['soft_win_rate']:.1%}</td>
         <td class="text-end text-danger">{info.losses.avg_cards:.2f}</td>
@@ -130,13 +141,13 @@ def _overview_rows(players, final_infos, metrics, bot_colour, win_base, prefix='
 
 def _page_index(players, final_infos, metrics, bot_colour, baselines,
                 config, generated) -> str:
-    hard_base, soft_base, win_base = baselines
+    hard_base, soft_base, win_base, score_base = baselines
     n_exp  = config.get('n_experiments', '?')
     ap     = config.get('available_players', [5])
     ap_str = f'{ap[0]}–{ap[-1]}' if ap else '?'
     n_bots = len(players)
 
-    table_rows = _overview_rows(players, final_infos, metrics, bot_colour, win_base)
+    table_rows = _overview_rows(players, final_infos, metrics, bot_colour, score_base)
 
     win_scatter = div(C.win_type_scatter(players, metrics, bot_colour, hard_base, soft_base), height='460px')
 
@@ -191,18 +202,18 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
   <section id="leaderboard" class="mb-5">
     <div class="section-title">Leaderboard</div>
     <p class="text-muted small mb-2">
-      Sorted by <strong>Overall Win %</strong> = hard wins + soft wins (i.e. "not finishing last").
-      In an <em>n</em>-player game exactly 2 players lose, so the baseline is
-      <strong>{win_base:.1%}</strong> ((n−2)/n, avg across game sizes {ap_str}).
-      A <strong>hard win</strong> = 1st place; a <strong>soft win</strong> = any middle finish.
-      Click any bot name to open its detail page.
+      Sorted by <strong>Score = hard win rate + 0.5 × soft win rate</strong>.
+      Hard wins are worth twice as much as soft wins; losses contribute 0.
+      Random-play baseline ≈ <strong>{score_base:.3f}</strong>
+      (avg across {ap_str}-player games).
+      Click any bot name for the full detail page.
     </p>
     <div class="table-responsive mb-4">
       <table class="table table-hover table-bordered align-middle bg-white shadow-sm mb-0">
         <thead><tr>
           <th class="text-center">#</th><th>Bot</th>
           <th class="text-end">Total games</th>
-          <th class="text-end">Overall Win %</th>
+          <th class="text-end">Score</th>
           <th class="text-end">vs Baseline</th>
           <th class="text-end">Hard Win %</th>
           <th class="text-end">Soft Win %</th>
@@ -234,7 +245,7 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
 
 def _page_strategy(players, final_infos, metrics, bot_colour, baselines,
                    config, generated) -> str:
-    hard_base, soft_base, win_base = baselines
+    hard_base, soft_base, win_base, _score_base = baselines
 
     def _d(fig, h='440px'): return div(fig, h)
 
@@ -405,15 +416,16 @@ const METRICS  = {metrics_json};
 
 const PCT_KEYS = ['win_rate','hard_win_rate','soft_win_rate','loss_rate',
                   'bluff_rate','bluff_stealth','doubt_rate','doubt_accuracy'];
-const ALL_KEYS = [...PCT_KEYS, 'avg_position','cards_per_turn'];
+const ALL_KEYS = ['score', ...PCT_KEYS, 'avg_position','cards_per_turn'];
 const ALL_LABELS = {{
-  win_rate:'Win Rate', hard_win_rate:'Hard Win %', soft_win_rate:'Soft Win %',
+  score:'Score', win_rate:'Win Rate', hard_win_rate:'Hard Win %', soft_win_rate:'Soft Win %',
   loss_rate:'Loss Rate', bluff_rate:'Bluff Rate', bluff_stealth:'Bluff Stealth',
   doubt_rate:'Doubt Rate', doubt_accuracy:'Doubt Accuracy',
   avg_position:'Avg Position', cards_per_turn:'Cards/Turn',
 }};
 
 function fmt(val, key) {{
+  if (key === 'score') return val.toFixed(3);
   return PCT_KEYS.includes(key) ? (val*100).toFixed(1)+'%' : val.toFixed(2);
 }}
 
@@ -586,23 +598,25 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 def _page_bot(bot, rank, players, final_infos, metrics, bot_colour,
               baselines, generated) -> str:
-    hard_base, soft_base, win_base = baselines
-    info   = final_infos[bot]
-    m      = metrics[bot]
-    colour = bot_colour[bot]
-    hwr    = m['hard_win_rate']
-    swr    = m['soft_win_rate']
-    lr     = m['loss_rate']
+    hard_base, soft_base, win_base, score_base = baselines
+    info       = final_infos[bot]
+    m          = metrics[bot]
+    colour     = bot_colour[bot]
+    hwr        = m['hard_win_rate']
+    swr        = m['soft_win_rate']
+    lr         = m['loss_rate']
+    score      = m['score']
+    score_delta = score - score_base
 
     perf_cards = f'''
 <div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">{stat_card(f"{score:.3f}", "Score", colour,
+                                          delta=f'{score_delta:+.3f} vs baseline')}</div>
   <div class="col-6 col-md-2">{stat_card(f"{info.total.games:,}", "Total games")}</div>
   <div class="col-6 col-md-2">{stat_card(f"{hwr:.1%}", "Hard Win %", colour, hwr)}</div>
   <div class="col-6 col-md-2">{stat_card(f"{(hwr-hard_base):+.1%}", "vs Hard Baseline",
                                           "#198754" if hwr >= hard_base else "#dc3545")}</div>
   <div class="col-6 col-md-2">{stat_card(f"{swr:.1%}", "Soft Win %", "#0d6efd", swr)}</div>
-  <div class="col-6 col-md-2">{stat_card(f"{(swr-soft_base):+.1%}", "vs Soft Baseline",
-                                          "#198754" if swr >= soft_base else "#dc3545")}</div>
   <div class="col-6 col-md-2">{stat_card(f"{lr:.1%}", "Loss Rate", "#dc3545")}</div>
 </div>'''
 
@@ -710,15 +724,22 @@ def _page_bot(bot, rank, players, final_infos, metrics, bot_colour,
 # ── Site generator ─────────────────────────────────────────────────────────────
 
 def generate_html_site(final_infos: dict, config: dict, output_dir: str = 'report_site/') -> None:
-    players  = sorted(final_infos.keys(), key=lambda b: win_rate(final_infos[b]), reverse=True)
+    ap        = config.get('available_players', [5])
+    avg_n     = sum(ap) / len(ap)
+    hard_base  = 1.0 / avg_n
+    soft_base  = max(0.0, (avg_n - 3) / avg_n)
+    win_base   = hard_base + soft_base
+    score_base = _score(hard_base, soft_base)
+    baselines  = (hard_base, soft_base, win_base, score_base)
+
+    # Sort by score — the primary ranking metric
+    players  = sorted(
+        final_infos.keys(),
+        key=lambda b: _score(hard_win_rate(final_infos[b]), soft_win_rate(final_infos[b])),
+        reverse=True,
+    )
     colours  = make_bot_colours(players)
     metrics  = _all_metrics(players, final_infos)
-    ap       = config.get('available_players', [5])
-    avg_n    = sum(ap) / len(ap)
-    hard_base = 1.0 / avg_n
-    soft_base = max(0.0, (avg_n - 3) / avg_n)
-    win_base  = hard_base + soft_base
-    baselines = (hard_base, soft_base, win_base)
     generated = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
 
 
