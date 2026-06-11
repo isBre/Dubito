@@ -1,21 +1,12 @@
 from dubito.core_game import dubito
 from tqdm import tqdm
-from pprint import pprint
 import random
-from bots import rule_based, probability
+import bots  # noqa: F401 — populates BotBase.registry
+from bots.base import BotBase
 import csv
 
-ALGORITHMS = [
-    rule_based.AlwaysTruthful,
-    rule_based.JustPutCards,
-    rule_based.MrDoubt,
-    rule_based.MrNoDoubt,
-    rule_based.RandomBoi,
-    probability.AdptyBoi,
-    probability.SusBoi,
-    probability.UsualBot,
-    probability.RiskCounter,
-]
+_LLM_BOTS = {'ClaudeBot', 'ChatGPTBot', 'ChatGPTThinkingBot', 'GeminiBot'}
+ALGORITHMS = [cls for name, cls in BotBase.registry.items() if name not in _LLM_BOTS]
 PLAYERS_NUMBER = 6
 N_EXPERIMENTS = 10_000
 

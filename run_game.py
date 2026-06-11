@@ -4,8 +4,8 @@ Run a single game of Dubito from the command line.
 Usage:
     python3 run_game.py              # default 4 bots
     python3 run_game.py --logs       # print full turn-by-turn log
-    python3 run_game.py --players AlwaysTruthful MrDoubt RandomBoi MrNoDoubt
-    python3 run_game.py --players RandomBoi RandomBoi RandomBoi --logs
+    python3 run_game.py --players HonestBot AlwaysDoubtBot RandomBot TrustingBot
+    python3 run_game.py --players RandomBot RandomBot RandomBot --logs
 """
 
 import argparse
@@ -15,7 +15,7 @@ from bots.base import BotBase
 
 BOTS = BotBase.registry
 
-DEFAULT_PLAYERS = ["AlwaysTruthful", "MrNoDoubt", "MrDoubt", "RandomBoi"]
+DEFAULT_PLAYERS = ["HonestBot", "TrustingBot", "AlwaysDoubtBot", "RandomBot"]
 
 
 def main():

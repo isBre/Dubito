@@ -5,17 +5,17 @@ output_html: report.html
 
 # Comment out any bot to exclude it from the experiment
 bots:
-  - AlwaysTruthful
-  - JustPutCards
-  - MrDoubt
-  - MrNoDoubt
-  - RandomBoi
-  - StefaBot
-  - AdaptyBoi
-  - SusBoi
-  - UsualBot
-  - RiskCounter
+  - HonestBot
+  - AlwaysBluffBot
+  - AlwaysDoubtBot
+  - TrustingBot
+  - RandomBot
+  - TacticalDoubtBot
+  - AdaptiveBot
+  - SuspicionBot
+  - BalancedBot
+  - RiskAwareBot
   - ClaudeBot
   - ChatGPTBot
-  - ChatGPT_thinking
+  - ChatGPTThinkingBot
   - GeminiBot

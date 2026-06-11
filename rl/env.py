@@ -60,21 +60,12 @@ from dubito.game_data import (
 )
 from dubito.handlers import GameHandler, generate_player_data
 from dubito.core_game import initialize
-from bots import rule_based, probability
+import bots  # noqa: F401 — populates BotBase.registry
+from bots.base import BotBase
 
-
-OPPONENT_POOL = [
-    rule_based.AlwaysTruthful,
-    rule_based.JustPutCards,
-    rule_based.MrDoubt,
-    rule_based.MrNoDoubt,
-    rule_based.RandomBoi,
-    rule_based.StefaBot,
-    probability.AdaptyBoi,
-    probability.SusBoi,
-    probability.UsualBot,
-    probability.RiskCounter,
-]
+# LLM bots are excluded: they require API access and are too slow for rollouts.
+_LLM_BOTS = {'ClaudeBot', 'ChatGPTBot', 'ChatGPTThinkingBot', 'GeminiBot'}
+OPPONENT_POOL = [cls for name, cls in BotBase.registry.items() if name not in _LLM_BOTS]
 
 N_ACTIONS = 7
 OBS_DIM   = 60
