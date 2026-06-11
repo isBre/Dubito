@@ -312,7 +312,64 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
     fig_sc_agg_wr  = _scatter('bluff_rate',    'win_rate',       'Bluff Rate',            'Win Rate',       'Does Aggression Pay Off? Bluff Rate vs Win Rate',    '.1%', '.1%')
     fig_sc_pos_wr  = _scatter('avg_position',  'win_rate',       'Avg Relative Position', 'Win Rate',       'Position vs Win Rate',                              '.3f', '.1%')
 
-    # ── Section 4 chart: bluff rate by outcome ───────────────────────────────
+    # ── Section 3 chart: bluff risk-reward bubble (NEW) ──────────────────────
+    # x=bluff_rate, y=bluff_stealth, size=win_rate — skilled vs reckless bluffers
+    fig_sc_bluff_risk = go.Figure()
+    for b in players:
+        m = metrics[b]
+        fig_sc_bluff_risk.add_trace(go.Scatter(
+            x=[m['bluff_rate']], y=[m['bluff_stealth']],
+            mode='markers+text', name=b,
+            text=[b], textposition='top center',
+            marker=dict(
+                color=bot_colour[b],
+                size=14 + m['win_rate'] * 36,
+                opacity=0.85,
+                line=dict(width=1.5, color='white'),
+            ),
+            hovertemplate=(
+                f'<b>{b}</b><br>'
+                f'Bluff Rate: %{{x:.1%}}<br>'
+                f'Bluff Stealth: %{{y:.1%}}<br>'
+                f'Win Rate: {m["win_rate"]:.1%}<extra></extra>'
+            ),
+            showlegend=False,
+        ))
+    fig_sc_bluff_risk.update_layout(
+        title='Bluffing Risk vs Skill — bubble size = win rate',
+        xaxis_title='Bluff Rate (how often they bluff)',
+        yaxis_title='Bluff Stealth (fraction that go uncaught)',
+        xaxis_tickformat='.0%', yaxis_tickformat='.0%',
+        **LAYOUT_BASE, margin=dict(t=60, b=60), height=460,
+    )
+
+    # ── Section 3 chart: parallel coordinates (NEW) ───────────────────────────
+    n = len(players)
+    parcoords_color_vals = list(range(n))
+    parcoords_colorscale = [[i / max(n - 1, 1), bot_colour[b]] for i, b in enumerate(players)]
+    fig_parcoords = go.Figure(go.Parcoords(
+        line=dict(
+            color=parcoords_color_vals,
+            colorscale=parcoords_colorscale,
+            showscale=False,
+        ),
+        dimensions=[
+            dict(label='Win Rate',       values=[metrics[b]['win_rate']       for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Hard Win %',     values=[metrics[b]['hard_win_rate']  for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Bluff Rate',     values=[metrics[b]['bluff_rate']     for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Bluff Stealth',  values=[metrics[b]['bluff_stealth']  for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Doubt Rate',     values=[metrics[b]['doubt_rate']     for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Doubt Accuracy', values=[metrics[b]['doubt_accuracy'] for b in players], tickformat='.0%', range=[0, 1]),
+            dict(label='Cards/Turn',     values=[metrics[b]['cards_per_turn'] for b in players], tickformat='.2f'),
+        ],
+        labelfont=dict(size=12),
+    ))
+    fig_parcoords.update_layout(
+        title='Parallel Coordinates — all behavioral metrics (drag axes to filter bots)',
+        **LAYOUT_BASE, margin=dict(t=80, b=60, l=80, r=80), height=500,
+    )
+
+    # ── Section 4 charts: by-outcome grouped bars ────────────────────────────
     outcomes       = ['hard_wins', 'soft_wins', 'losses']
     outcome_labels = ['Hard Win', 'Soft Win', 'Loss']
     outcome_colors = ['#198754', '#0d6efd', '#dc3545']
@@ -359,6 +416,50 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
     )
     fig_doubt_outcome.update_xaxes(tickangle=-35)
+
+    # ── Section 4 chart: doubt rate by outcome (NEW) ─────────────────────────
+    fig_doubt_rate_outcome = go.Figure()
+    for outcome, label, color in zip(outcomes, outcome_labels, outcome_colors):
+        vals = [
+            safe_div(getattr(final_infos[b], outcome).doubts,
+                     getattr(final_infos[b], outcome).not_first_turns)
+            for b in players
+        ]
+        fig_doubt_rate_outcome.add_trace(go.Bar(
+            name=label, x=players, y=vals, marker_color=color,
+            text=[f'{v:.1%}' for v in vals], textposition='outside',
+            hovertemplate=f'<b>%{{x}}</b><br>Doubt rate ({label}): %{{y:.2%}}<extra></extra>',
+        ))
+    fig_doubt_rate_outcome.update_layout(
+        barmode='group',
+        title='Doubt Rate by Outcome — do winners challenge more or less?',
+        yaxis_title='Doubt Rate', yaxis_tickformat='.0%',
+        **LAYOUT_BASE, margin=dict(t=60, b=80),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig_doubt_rate_outcome.update_xaxes(tickangle=-35)
+
+    # ── Section 4 chart: cards per turn by outcome (NEW) ─────────────────────
+    fig_cpt_outcome = go.Figure()
+    for outcome, label, color in zip(outcomes, outcome_labels, outcome_colors):
+        vals = [
+            safe_div(getattr(final_infos[b], outcome).cards_played,
+                     getattr(final_infos[b], outcome).play_turns)
+            for b in players
+        ]
+        fig_cpt_outcome.add_trace(go.Bar(
+            name=label, x=players, y=vals, marker_color=color,
+            text=[f'{v:.2f}' for v in vals], textposition='outside',
+            hovertemplate=f'<b>%{{x}}</b><br>Cards/turn ({label}): %{{y:.2f}}<extra></extra>',
+        ))
+    fig_cpt_outcome.update_layout(
+        barmode='group',
+        title='Cards per Turn by Outcome — do winners play more cards at once?',
+        yaxis_title='Avg cards per play turn',
+        **LAYOUT_BASE, margin=dict(t=60, b=80),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+    )
+    fig_cpt_outcome.update_xaxes(tickangle=-35)
 
     # ── Section 5 chart: heatmaps ─────────────────────────────────────────────
     def _heatmap_fig(position: str, title: str) -> go.Figure:
@@ -681,6 +782,24 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
           </p>
         </div>
       </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card">
+          {_div(fig_sc_bluff_risk, height='480px')}
+          <p class="text-muted small mt-1 mb-0 text-center">
+            Top-right corner = frequent <em>and</em> stealthy bluffers. Bubble size reflects win rate —
+            bigger bubbles dominate. Reckless bluffers (high rate, low stealth) sit bottom-right.
+          </p>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="chart-card">
+          {_div(fig_parcoords, height='520px')}
+          <p class="text-muted small mt-1 mb-0 text-center">
+            Each line is one bot traced across all metrics. Drag an axis range to filter and compare subsets.
+            Lines that stay high on Win Rate while also staying high on Doubt Accuracy reveal the winning formula.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -717,6 +836,22 @@ def generate_html_report(final_infos: dict, config: dict, output_path: str = 're
           {_div(fig_doubt_outcome, height='460px')}
           <p class="text-muted small mt-1 mb-0 text-center">
             Do bots doubt more accurately when they win? A gap between Hard Win and Loss bars reveals whether doubt quality influences outcomes.
+          </p>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="chart-card">
+          {_div(fig_doubt_rate_outcome, height='460px')}
+          <p class="text-muted small mt-1 mb-0 text-center">
+            How often do bots doubt across outcomes? If winners doubt less, they may be more selective; if they doubt more, aggression pays.
+          </p>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="chart-card">
+          {_div(fig_cpt_outcome, height='460px')}
+          <p class="text-muted small mt-1 mb-0 text-center">
+            Cards per play turn in each outcome. Winners playing more cards per turn empty their hand faster; losers playing fewer may be too cautious.
           </p>
         </div>
       </div>
