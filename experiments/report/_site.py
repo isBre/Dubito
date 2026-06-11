@@ -99,6 +99,33 @@ def _leaderboard_rows(sorted_bots, rate_fn, base, bucket, final_infos, bot_colou
     return rows
 
 
+# ── Overview table (sorted by overall = hard + soft win rate) ─────────────────
+
+def _overview_rows(players, final_infos, metrics, bot_colour, win_base, prefix='') -> str:
+    rows = ''
+    for rank, bot in enumerate(
+        sorted(players, key=lambda b: metrics[b]['win_rate'], reverse=True), 1
+    ):
+        info   = final_infos[bot]
+        m      = metrics[bot]
+        colour = bot_colour[bot]
+        delta  = m['win_rate'] - win_base
+        dot    = (f'<span style="display:inline-block;width:11px;height:11px;'
+                  f'border-radius:50%;background:{colour};margin-right:7px;"></span>')
+        rows += f'''
+      <tr>
+        <td class="text-center text-muted">{rank}</td>
+        <td><a href="{prefix}bots/{bot}.html" class="text-decoration-none fw-semibold">{dot}{bot}</a></td>
+        <td class="text-end">{info.total.games:,}</td>
+        <td class="text-end fw-bold" style="color:{colour}">{m['win_rate']:.1%}</td>
+        <td class="text-end" style="color:{'#198754' if delta >= 0 else '#dc3545'}">{delta:+.1%}</td>
+        <td class="text-end">{m['hard_win_rate']:.1%}</td>
+        <td class="text-end">{m['soft_win_rate']:.1%}</td>
+        <td class="text-end text-danger">{info.losses.avg_cards:.2f}</td>
+      </tr>'''
+    return rows
+
+
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
 def _page_index(players, final_infos, metrics, bot_colour, baselines,
@@ -109,8 +136,7 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
     ap_str = f'{ap[0]}–{ap[-1]}' if ap else '?'
     n_bots = len(players)
 
-    hard_sorted = sorted(players, key=lambda b: hard_win_rate(final_infos[b]), reverse=True)
-    table_rows  = _leaderboard_rows(hard_sorted, hard_win_rate, hard_base, 'hard_wins', final_infos, bot_colour)
+    table_rows = _overview_rows(players, final_infos, metrics, bot_colour, win_base)
 
     win_scatter = div(C.win_type_scatter(players, metrics, bot_colour, hard_base, soft_base), height='460px')
 
@@ -163,18 +189,24 @@ def _page_index(players, final_infos, metrics, bot_colour, baselines,
 
   <!-- Leaderboard table -->
   <section id="leaderboard" class="mb-5">
-    <div class="section-title">Hard Win Leaderboard</div>
+    <div class="section-title">Leaderboard</div>
     <p class="text-muted small mb-2">
-      A <strong>hard win</strong> = finishing 1st. Baseline ≈ {hard_base:.1%} (1 / avg players).
+      Sorted by <strong>Overall Win %</strong> = hard wins + soft wins (i.e. "not finishing last").
+      In an <em>n</em>-player game exactly 2 players lose, so the baseline is
+      <strong>{win_base:.1%}</strong> ((n−2)/n, avg across game sizes {ap_str}).
+      A <strong>hard win</strong> = 1st place; a <strong>soft win</strong> = any middle finish.
       Click any bot name to open its detail page.
     </p>
     <div class="table-responsive mb-4">
       <table class="table table-hover table-bordered align-middle bg-white shadow-sm mb-0">
         <thead><tr>
           <th class="text-center">#</th><th>Bot</th>
-          <th class="text-end">Total games</th><th class="text-end">Hard Wins</th>
-          <th class="text-end">Hard Win %</th><th class="text-end">Avg cards (win)</th>
-          <th class="text-end">vs Baseline</th><th class="text-end">Avg cards (loss)</th>
+          <th class="text-end">Total games</th>
+          <th class="text-end">Overall Win %</th>
+          <th class="text-end">vs Baseline</th>
+          <th class="text-end">Hard Win %</th>
+          <th class="text-end">Soft Win %</th>
+          <th class="text-end">Avg cards (loss)</th>
         </tr></thead>
         <tbody>{table_rows}</tbody>
       </table>
