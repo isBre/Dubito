@@ -18,22 +18,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from stable_baselines3 import PPO
 from rl.bot import RLBot
-from bots import rule_based, probability
+import bots  # noqa: F401 — populates BotBase.registry
+from bots.base import BotBase
 from dubito.core_game import dubito
 
-
-ALL_OPPONENTS = {
-    "AlwaysTruthful": rule_based.AlwaysTruthful,
-    "JustPutCards":   rule_based.JustPutCards,
-    "MrDoubt":        rule_based.MrDoubt,
-    "MrNoDoubt":      rule_based.MrNoDoubt,
-    "RandomBoi":      rule_based.RandomBoi,
-    "StefaBot":       rule_based.StefaBot,
-    "AdaptyBoi":      probability.AdaptyBoi,
-    "SusBoi":         probability.SusBoi,
-    "UsualBot":       probability.UsualBot,
-    "RiskCounter":    probability.RiskCounter,
-}
+# LLM bots are excluded: they require API access and are too slow for evaluation.
+_LLM_BOTS = {'ClaudeBot', 'ChatGPTBot', 'ChatGPTThinkingBot', 'GeminiBot'}
+ALL_OPPONENTS = {name: cls for name, cls in BotBase.registry.items() if name not in _LLM_BOTS}
 
 
 def evaluate(model_path: str, n_games: int) -> None:
