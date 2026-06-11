@@ -10,16 +10,10 @@ Usage:
 
 import argparse
 from dubito.core_game import dubito
-from bots.manual.rule_based import AlwaysTruthful, MrNoDoubt, JustPutCards, RandomBoi, MrDoubt, StefaBot
+import bots  # noqa: F401 — side-effect import: registers all subclasses in BotBase.registry
+from bots.base import BotBase
 
-BOTS = {
-    "AlwaysTruthful": AlwaysTruthful,
-    "MrNoDoubt":      MrNoDoubt,
-    "JustPutCards":   JustPutCards,
-    "RandomBoi":      RandomBoi,
-    "MrDoubt":        MrDoubt,
-    "StefaBot":       StefaBot,
-}
+BOTS = BotBase.registry
 
 DEFAULT_PLAYERS = ["AlwaysTruthful", "MrNoDoubt", "MrDoubt", "RandomBoi"]
 
