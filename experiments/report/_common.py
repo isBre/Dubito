@@ -46,7 +46,7 @@ table thead th{background:#343a40;color:#fff;white-space:nowrap}
 
 def head(title: str, extra_css: str = '') -> str:
     return f'''<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
