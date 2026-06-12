@@ -1170,5 +1170,194 @@ class TestDoubtAttributionInvariant(unittest.TestCase):
                     self.assertEqual(e.target_id, last_author)
 
 
+# ---------------------------------------------------------------------------
+# Web session — the human-vs-bots backend shared by Flask and the static build
+# ---------------------------------------------------------------------------
+
+from web_session import (
+    GameSession, HumanPlayer, _sessions,
+    handle_create_game, handle_play, handle_doubt, handle_api,
+)
+
+
+def _make_session():
+    """3-seat session (human first, so it's immediately their turn) with
+    hand-built hands — initialize() is skipped for determinism."""
+    players = [HumanPlayer(1), TrustingBot(2), TrustingBot(3)]
+    session = GameSession(players, show_names=True)
+    session.human.cards.hand = [7, 7, 9]
+    players[1].add_cards([10, 10, 11])
+    players[2].add_cards([12, 12, 13])
+    _sessions[session.id] = session
+    session.advance_bots()      # enter the human's first turn (as create_game does)
+    return session, players
+
+
+class TestWebSessionRules(unittest.TestCase):
+
+    def test_joker_doubt_preserves_buried_jokers(self):
+        # Pile: an earlier play buried a joker under the top play [joker].
+        # Doubting the honest joker discards only the top one — the buried
+        # joker travels to the doubter with the rest of the pile.
+        session, players = _make_session()
+        gh = session.gh
+        gh.set_current_number(5)
+        gh.set_board_cards([5, 0], author_id=players[1].id)   # buried joker
+        gh.set_board_cards([0],    author_id=players[2].id)   # honest joker on top
+        hand_before = list(session.human.cards.hand)
+
+        frames, correct = session.process_output(
+            TurnOutput(doubt=True, number=None, cards=None), session.human, players[2])
+
+        self.assertFalse(correct)
+        gained = session.human.cards.hand[len(hand_before):]
+        self.assertEqual(sorted(gained), [0, 5])              # buried joker survives
+        event = next(e for e in gh.history if isinstance(e, DoubtResolvedEvent))
+        self.assertEqual(event.jokers_discarded, 1)
+        self.assertEqual(sorted(event.board_cards), [0, 5])
+
+    def test_first_hand_joker_declaration_rerolls_to_available(self):
+        # A joker declared as the round number (value 0) is re-rolled by the
+        # engine to a number still in play — it must never stick as 0 or
+        # silently turn into Aces.
+        for _ in range(20):
+            session, players = _make_session()
+            session.gh.board.availables = [4, 9]
+            session.process_output(
+                TurnOutput(doubt=False, number=0, cards=[3]), players[1], players[0])
+            self.assertIn(session.gh.get_current_number(), [4, 9])
+
+    def test_first_hand_missing_declaration_rerolls_to_available(self):
+        session, players = _make_session()
+        session.gh.board.availables = [6]
+        session.process_output(
+            TurnOutput(doubt=False, number=None, cards=[3]), players[1], players[0])
+        self.assertEqual(session.gh.get_current_number(), 6)
+
+    def test_human_dump_win_arrives_through_the_doubt_window(self):
+        # The human dumps an honest pair on the first hand: the win is pending
+        # first (doubtable), then confirms once a bot plays over it.
+        session, players = _make_session()
+        session.human.cards.hand = [7, 7]
+        payload, status = handle_play(
+            session.id, {"card_indices": [0, 1], "number": 7})
+        self.assertEqual(status, 200)
+        kinds = [f["event_type"] for f in payload["frames"]]
+        self.assertIn("pending_win", kinds)
+        self.assertIn("win", kinds)
+        self.assertLess(kinds.index("pending_win"), kinds.index("win"))
+        self.assertEqual(payload["status"], "game_over")      # 3 seats → over after the win
+        self.assertEqual(payload["standings"][0]["name"], "YOU")
+
+
+class TestWebSessionValidation(unittest.TestCase):
+
+    def test_unknown_game_is_404(self):
+        payload, status = handle_play("nope", {"card_indices": [0], "number": 5})
+        self.assertEqual(status, 404)
+
+    def test_out_of_range_and_malformed_indices_are_rejected(self):
+        session, _ = _make_session()
+        for bad in ([], [3], [-1], ["0"], [True], "xx", [0, 1, 2, 3]):
+            payload, status = handle_play(
+                session.id, {"card_indices": bad, "number": 7})
+            self.assertEqual(status, 400, f"indices {bad!r} got through")
+        self.assertEqual(len(session.human.cards.hand), 3)    # hand untouched
+
+    def test_duplicate_indices_play_one_card(self):
+        session, _ = _make_session()
+        payload, status = handle_play(
+            session.id, {"card_indices": [0, 0], "number": 7})
+        self.assertEqual(status, 200)
+        play = next(f for f in payload["frames"] if f["event_type"] == "play")
+        self.assertEqual(play["msg"], "You play 1 card(s) and declare 7s.")
+
+    def test_first_hand_requires_valid_number(self):
+        for bad_number in (None, 0, 99, "7", True):
+            session, _ = _make_session()
+            payload, status = handle_play(
+                session.id, {"card_indices": [0], "number": bad_number})
+            self.assertEqual(status, 400, f"number {bad_number!r} got through")
+
+    def test_no_actions_after_game_over(self):
+        session, players = _make_session()
+        session.gh.players.playing = players[:2]              # force game over
+        for payload, status in (
+            handle_play(session.id, {"card_indices": [0], "number": 7}),
+            handle_doubt(session.id),
+        ):
+            self.assertEqual(status, 400)
+            self.assertEqual(payload["error"], "the game is over")
+
+    def test_no_actions_out_of_turn(self):
+        session, players = _make_session()
+        session.this_player = players[1]
+        payload, status = handle_doubt(session.id)
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "not your turn")
+
+    def test_cannot_doubt_on_first_hand(self):
+        session, _ = _make_session()
+        payload, status = handle_doubt(session.id)
+        self.assertEqual(status, 400)
+        self.assertEqual(payload["error"], "cannot doubt on first hand")
+
+    def test_create_game_rejects_garbage_player_count(self):
+        payload, status = handle_create_game({"n_players": "lots"})
+        self.assertEqual(status, 400)
+
+    def test_handle_api_routes_match_flask_map(self):
+        import json as _json
+        out = _json.loads(handle_api("/api/bots"))
+        self.assertEqual(out["status"], 200)
+        self.assertIn("TrustingBot", out["data"])
+
+        out = _json.loads(handle_api(
+            "/api/game", "POST",
+            _json.dumps({"n_players": 3, "bot_pool": ["TrustingBot"]})))
+        self.assertEqual(out["status"], 200)
+        state = out["data"]
+        self.assertEqual(state["status"], "player_turn")
+
+        gid = state["game_id"]
+        body = {"card_indices": [0]}
+        if state["is_first_hand"]:
+            body["number"] = state["available_numbers"][0]
+        out = _json.loads(handle_api(f"/api/game/{gid}/play", "POST", _json.dumps(body)))
+        self.assertEqual(out["status"], 200)
+
+        out = _json.loads(handle_api("/api/nope"))
+        self.assertEqual(out["status"], 404)
+
+
+class TestFlaskRoutes(unittest.TestCase):
+    """The Flask layer is a thin shim — one round-trip per route proves the wiring."""
+
+    def setUp(self):
+        from app import app as flask_app
+        self.client = flask_app.test_client()
+
+    def test_full_game_round_trip(self):
+        bots_list = self.client.get("/api/bots").get_json()
+        self.assertIn("TrustingBot", bots_list)
+
+        r = self.client.post("/api/game", json={"n_players": 3, "bot_pool": ["TrustingBot"]})
+        self.assertEqual(r.status_code, 200)
+        state = r.get_json()
+        gid = state["game_id"]
+
+        body = {"card_indices": [0]}
+        if state["is_first_hand"]:
+            body["number"] = state["available_numbers"][0]
+        r = self.client.post(f"/api/game/{gid}/play", json=body)
+        self.assertEqual(r.status_code, 200)
+
+        r = self.client.post(f"/api/game/{gid}/play", json={"card_indices": [99]})
+        self.assertEqual(r.status_code, 400)
+
+        r = self.client.post("/api/game/nope/doubt")
+        self.assertEqual(r.status_code, 404)
+
+
 if __name__ == '__main__':
     unittest.main()
