@@ -158,9 +158,9 @@ python -m experiments.report results/all_games.yaml --config results/experiment.
 
 ## Publish the report on GitHub Pages
 
-The final report is published from the committed snapshot in `results/` (`all_games.yaml` plus the `experiment.yaml` it was produced with) by the `Publish report` workflow (`.github/workflows/report.yml`), which rebuilds the site in CI and deploys it to GitHub Pages.
+The published report lives at **https://isbre.github.io/Dubito/**, served from the dedicated `gh-pages` branch (generated HTML never lives on code branches). Pages is configured with **Settings → Pages → Deploy from a branch: `gh-pages` / root**.
 
-One-time setup: repo **Settings → Pages → Source: "GitHub Actions"**. After that, the report republishes automatically whenever `results/` changes on `main` (or on demand from the Actions tab via *Run workflow*).
+The `Publish report` workflow (`.github/workflows/report.yml`) republishes automatically whenever the committed snapshot in `results/` (`all_games.yaml` plus the `experiment.yaml` it was produced with) changes on `main` — or on demand from the Actions tab via *Run workflow*. It rebuilds the site in CI from the snapshot and force-pushes it to `gh-pages`.
 
 To publish a new final report: run the experiment, refresh the snapshot, and push:
 
