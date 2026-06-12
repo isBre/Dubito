@@ -166,4 +166,5 @@ assets/graphs/
 report_site/
 
 # Game data / experiment outputs (large generated files)
-all_games.yaml
+# Root only — the committed snapshot in results/ must stay tracked.
+/all_games.yaml
