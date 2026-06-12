@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Overview — Dubito</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+body{font-family:"Inter",system-ui,sans-serif;background:#f8f9fa}
+.navbar-brand{font-weight:700;letter-spacing:.5px}
+.nav-link{color:rgba(255,255,255,.65)!important;font-size:.875rem;padding:.3rem .6rem!important}
+.nav-link:hover,.nav-link.active{color:#fff!important}
+.dropdown-item{font-size:.875rem}
+section{scroll-margin-top:70px}
+.stat-card{background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:12px 16px;text-align:center;height:100%}
+.stat-value{font-size:1.35rem;font-weight:700}
+.stat-label{font-size:.72rem;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.chart-card{background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:16px}
+table thead th{background:#343a40;color:#fff;white-space:nowrap}
+.section-title{font-size:1.35rem;font-weight:700;border-left:4px solid #4C78A8;padding-left:12px;margin-bottom:.4rem}
+.config-badge{display:inline-block;background:#e9ecef;border-radius:20px;padding:4px 14px;font-size:.85rem;font-weight:600;margin:2px}
+.tip-box{background:#fff8e1;border-left:4px solid #EECA3B;border-radius:6px;padding:12px 16px;font-size:.88rem}
+.nav-card{border:1px solid #e9ecef;border-radius:12px;padding:20px;background:#fff;text-decoration:none;color:inherit;display:block;transition:box-shadow .15s,transform .15s}
+.nav-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px);color:inherit}
+.bot-cb-label{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;border:2px solid;cursor:pointer;font-size:.82rem;font-weight:600;user-select:none;transition:opacity .15s}
+.bot-cb-label:has(input:not(:checked)){opacity:.4}
+</style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark sticky-top px-4">
+  <a class="navbar-brand" href="index.html">🎴 Dubito</a>
+  <ul class="navbar-nav flex-row gap-1 d-none d-md-flex align-items-center">
+    <li class="nav-item"><a class="nav-link active fw-semibold" href="index.html">Overview</a></li>
+    <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+    <li class="nav-item"><a class="nav-link" href="compare.html">Compare</a></li>
+    <li class="nav-item"><a class="nav-link" href="play/index.html">🎮 Play</a></li>
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Bots</a>
+      <ul class="dropdown-menu dropdown-menu-dark" style="max-height:70vh;overflow-y:auto"><li><a class="dropdown-item" href="bots/ClaudeFableBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>ClaudeFableBot</a></li><li><a class="dropdown-item" href="bots/GeminiBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F58518;margin-right:7px;"></span>GeminiBot</a></li><li><a class="dropdown-item" href="bots/ClaudeBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#E45756;margin-right:7px;"></span>ClaudeBot</a></li><li><a class="dropdown-item" href="bots/ChatGPTThinkingBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#72B7B2;margin-right:7px;"></span>ChatGPTThinkingBot</a></li><li><a class="dropdown-item" href="bots/ChatGPTBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#54A24B;margin-right:7px;"></span>ChatGPTBot</a></li><li><a class="dropdown-item" href="bots/TacticalDoubtBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#EECA3B;margin-right:7px;"></span>TacticalDoubtBot</a></li><li><a class="dropdown-item" href="bots/BalancedBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#B279A2;margin-right:7px;"></span>BalancedBot</a></li><li><a class="dropdown-item" href="bots/TrustingBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#FF9DA7;margin-right:7px;"></span>TrustingBot</a></li><li><a class="dropdown-item" href="bots/AdaptiveBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9D755D;margin-right:7px;"></span>AdaptiveBot</a></li><li><a class="dropdown-item" href="bots/HonestBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#BAB0AC;margin-right:7px;"></span>HonestBot</a></li><li><a class="dropdown-item" href="bots/SuspicionBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#FF7F0E;margin-right:7px;"></span>SuspicionBot</a></li><li><a class="dropdown-item" href="bots/RiskAwareBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2CA02C;margin-right:7px;"></span>RiskAwareBot</a></li><li><a class="dropdown-item" href="bots/AlwaysDoubtBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#D62728;margin-right:7px;"></span>AlwaysDoubtBot</a></li><li><a class="dropdown-item" href="bots/AlwaysBluffBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9467BD;margin-right:7px;"></span>AlwaysBluffBot</a></li><li><a class="dropdown-item" href="bots/RandomBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>RandomBot</a></li></ul>
+    </li>
+  </ul>
+</nav>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<div class="container-lg py-4">
+
+  <!-- Hero -->
+  <div class="mb-4">
+    <h1 class="fw-bold mb-1">🎴 Dubito Bot Report</h1>
+    <p class="text-muted lead mb-0">
+      Experiment results: <strong>1,000,000 games</strong>,
+      <strong>15 bots</strong>,
+      <strong>3–7 players per game</strong>.
+    </p>
+  </div>
+
+  <!-- Navigation cards -->
+  <div class="row g-3 mb-5">
+    <div class="col-md-4">
+      <a href="strategy.html" class="nav-card">
+        <div class="fw-bold mb-1">📊 Strategy Guide</div>
+        <div class="text-muted small">Cross-bot charts with educational captions. Learn what separates winners from losers.</div>
+      </a>
+    </div>
+    <div class="col-md-4">
+      <a href="compare.html" class="nav-card">
+        <div class="fw-bold mb-1">⚖️ Compare Bots</div>
+        <div class="text-muted small">Pick any set of bots and compare their stats, radar profiles, and outcomes side by side.</div>
+      </a>
+    </div>
+    <div class="col-md-4">
+      <a href="bots/ClaudeFableBot.html" class="nav-card">
+        <div class="fw-bold mb-1">🤖 Browse Bots</div>
+        <div class="text-muted small">Deep-dive pages for every bot — stats, neighbor analysis, and tips on how to play against them.</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Leaderboard table -->
+  <section id="leaderboard" class="mb-5">
+    <div class="section-title">Leaderboard</div>
+    <p class="text-muted small mb-2">
+      Sorted by <strong>Score = hard win rate + 0.5 × soft win rate</strong>.
+      Hard wins are worth twice as much as soft wins; losses contribute 0.
+      Random-play baseline ≈ <strong>0.400</strong>
+      (avg across 3–7-player games).
+      Click any bot name for the full detail page.
+    </p>
+    <div class="table-responsive mb-4">
+      <table class="table table-hover table-bordered align-middle bg-white shadow-sm mb-0">
+        <thead><tr>
+          <th class="text-center">#</th><th>Bot</th>
+          <th class="text-end">Total games</th>
+          <th class="text-end">Score</th>
+          <th class="text-end">vs Baseline</th>
+          <th class="text-end">Hard Win %</th>
+          <th class="text-end">Soft Win %</th>
+          <th class="text-end">Avg cards (loss)</th>
+        </tr></thead>
+        <tbody>
+      <tr>
+        <td class="text-center text-muted">1</td>
+        <td><a href="bots/ClaudeFableBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>ClaudeFableBot</a></td>
+        <td class="text-end">333,118</td>
+        <td class="text-end fw-bold" style="color:#4C78A8">0.659</td>
+        <td class="text-end" style="color:#198754">+0.259</td>
+        <td class="text-end">41.7%</td>
+        <td class="text-end">48.5%</td>
+        <td class="text-end text-danger">7.39</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">2</td>
+        <td><a href="bots/GeminiBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#F58518;margin-right:7px;"></span>GeminiBot</a></td>
+        <td class="text-end">334,011</td>
+        <td class="text-end fw-bold" style="color:#F58518">0.528</td>
+        <td class="text-end" style="color:#198754">+0.128</td>
+        <td class="text-end">30.7%</td>
+        <td class="text-end">44.1%</td>
+        <td class="text-end text-danger">7.27</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">3</td>
+        <td><a href="bots/ClaudeBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#E45756;margin-right:7px;"></span>ClaudeBot</a></td>
+        <td class="text-end">332,385</td>
+        <td class="text-end fw-bold" style="color:#E45756">0.528</td>
+        <td class="text-end" style="color:#198754">+0.128</td>
+        <td class="text-end">26.6%</td>
+        <td class="text-end">52.5%</td>
+        <td class="text-end text-danger">7.97</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">4</td>
+        <td><a href="bots/ChatGPTThinkingBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#72B7B2;margin-right:7px;"></span>ChatGPTThinkingBot</a></td>
+        <td class="text-end">333,434</td>
+        <td class="text-end fw-bold" style="color:#72B7B2">0.480</td>
+        <td class="text-end" style="color:#198754">+0.080</td>
+        <td class="text-end">22.3%</td>
+        <td class="text-end">51.3%</td>
+        <td class="text-end text-danger">8.99</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">5</td>
+        <td><a href="bots/ChatGPTBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#54A24B;margin-right:7px;"></span>ChatGPTBot</a></td>
+        <td class="text-end">333,025</td>
+        <td class="text-end fw-bold" style="color:#54A24B">0.475</td>
+        <td class="text-end" style="color:#198754">+0.075</td>
+        <td class="text-end">25.7%</td>
+        <td class="text-end">43.6%</td>
+        <td class="text-end text-danger">8.30</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">6</td>
+        <td><a href="bots/TacticalDoubtBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#EECA3B;margin-right:7px;"></span>TacticalDoubtBot</a></td>
+        <td class="text-end">332,533</td>
+        <td class="text-end fw-bold" style="color:#EECA3B">0.409</td>
+        <td class="text-end" style="color:#198754">+0.009</td>
+        <td class="text-end">19.8%</td>
+        <td class="text-end">42.1%</td>
+        <td class="text-end text-danger">10.09</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">7</td>
+        <td><a href="bots/BalancedBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#B279A2;margin-right:7px;"></span>BalancedBot</a></td>
+        <td class="text-end">332,523</td>
+        <td class="text-end fw-bold" style="color:#B279A2">0.399</td>
+        <td class="text-end" style="color:#dc3545">-0.001</td>
+        <td class="text-end">24.6%</td>
+        <td class="text-end">30.7%</td>
+        <td class="text-end text-danger">11.91</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">8</td>
+        <td><a href="bots/TrustingBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#FF9DA7;margin-right:7px;"></span>TrustingBot</a></td>
+        <td class="text-end">334,252</td>
+        <td class="text-end fw-bold" style="color:#FF9DA7">0.392</td>
+        <td class="text-end" style="color:#dc3545">-0.008</td>
+        <td class="text-end">19.9%</td>
+        <td class="text-end">38.7%</td>
+        <td class="text-end text-danger">11.19</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">9</td>
+        <td><a href="bots/AdaptiveBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#9D755D;margin-right:7px;"></span>AdaptiveBot</a></td>
+        <td class="text-end">333,575</td>
+        <td class="text-end fw-bold" style="color:#9D755D">0.380</td>
+        <td class="text-end" style="color:#dc3545">-0.020</td>
+        <td class="text-end">19.6%</td>
+        <td class="text-end">36.6%</td>
+        <td class="text-end text-danger">11.53</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">10</td>
+        <td><a href="bots/HonestBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#BAB0AC;margin-right:7px;"></span>HonestBot</a></td>
+        <td class="text-end">333,520</td>
+        <td class="text-end fw-bold" style="color:#BAB0AC">0.326</td>
+        <td class="text-end" style="color:#dc3545">-0.074</td>
+        <td class="text-end">8.9%</td>
+        <td class="text-end">47.4%</td>
+        <td class="text-end text-danger">6.37</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">11</td>
+        <td><a href="bots/SuspicionBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#FF7F0E;margin-right:7px;"></span>SuspicionBot</a></td>
+        <td class="text-end">333,099</td>
+        <td class="text-end fw-bold" style="color:#FF7F0E">0.317</td>
+        <td class="text-end" style="color:#dc3545">-0.083</td>
+        <td class="text-end">9.7%</td>
+        <td class="text-end">44.0%</td>
+        <td class="text-end text-danger">7.29</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">12</td>
+        <td><a href="bots/RiskAwareBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#2CA02C;margin-right:7px;"></span>RiskAwareBot</a></td>
+        <td class="text-end">334,247</td>
+        <td class="text-end fw-bold" style="color:#2CA02C">0.309</td>
+        <td class="text-end" style="color:#dc3545">-0.091</td>
+        <td class="text-end">12.1%</td>
+        <td class="text-end">37.6%</td>
+        <td class="text-end text-danger">11.22</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">13</td>
+        <td><a href="bots/AlwaysDoubtBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#D62728;margin-right:7px;"></span>AlwaysDoubtBot</a></td>
+        <td class="text-end">333,194</td>
+        <td class="text-end fw-bold" style="color:#D62728">0.290</td>
+        <td class="text-end" style="color:#dc3545">-0.110</td>
+        <td class="text-end">12.9%</td>
+        <td class="text-end">32.3%</td>
+        <td class="text-end text-danger">10.75</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">14</td>
+        <td><a href="bots/AlwaysBluffBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#9467BD;margin-right:7px;"></span>AlwaysBluffBot</a></td>
+        <td class="text-end">332,829</td>
+        <td class="text-end fw-bold" style="color:#9467BD">0.284</td>
+        <td class="text-end" style="color:#dc3545">-0.116</td>
+        <td class="text-end">18.7%</td>
+        <td class="text-end">19.3%</td>
+        <td class="text-end text-danger">17.40</td>
+      </tr>
+      <tr>
+        <td class="text-center text-muted">15</td>
+        <td><a href="bots/RandomBot.html" class="text-decoration-none fw-semibold"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>RandomBot</a></td>
+        <td class="text-end">334,784</td>
+        <td class="text-end fw-bold" style="color:#4C78A8">0.223</td>
+        <td class="text-end" style="color:#dc3545">-0.177</td>
+        <td class="text-end">6.8%</td>
+        <td class="text-end">31.0%</td>
+        <td class="text-end text-danger">11.68</td>
+      </tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Win-type scatter -->
+  <section id="overview-chart" class="mb-5">
+    <div class="section-title">Win-Type Overview</div>
+    <div class="chart-card"><div style="width:100%;height:460px;"><div style="height:460px; width:100%;">                            <div id="c90e1433-3b7e-4340-8465-9cf692066bcf" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script>                window.PLOTLYENV=window.PLOTLYENV || {};                                if (document.getElementById("c90e1433-3b7e-4340-8465-9cf692066bcf")) {                    Plotly.newPlot(                        "c90e1433-3b7e-4340-8465-9cf692066bcf",                        [{"hovertemplate":"\u003cb\u003eClaudeFableBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#4C78A8","size":14},"mode":"markers+text","name":"ClaudeFableBot","showlegend":false,"text":["ClaudeFableBot"],"textposition":"top center","x":[0.4166721702219634],"y":[0.4852304588764342],"type":"scatter"},{"hovertemplate":"\u003cb\u003eGeminiBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#F58518","size":14},"mode":"markers+text","name":"GeminiBot","showlegend":false,"text":["GeminiBot"],"textposition":"top center","x":[0.30742101308040753],"y":[0.44141360613872],"type":"scatter"},{"hovertemplate":"\u003cb\u003eClaudeBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#E45756","size":14},"mode":"markers+text","name":"ClaudeBot","showlegend":false,"text":["ClaudeBot"],"textposition":"top center","x":[0.26559261097823306],"y":[0.5248010590128916],"type":"scatter"},{"hovertemplate":"\u003cb\u003eChatGPTThinkingBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#72B7B2","size":14},"mode":"markers+text","name":"ChatGPTThinkingBot","showlegend":false,"text":["ChatGPTThinkingBot"],"textposition":"top center","x":[0.22316560398759575],"y":[0.5134899260423352],"type":"scatter"},{"hovertemplate":"\u003cb\u003eChatGPTBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#54A24B","size":14},"mode":"markers+text","name":"ChatGPTBot","showlegend":false,"text":["ChatGPTBot"],"textposition":"top center","x":[0.2566804293971924],"y":[0.43607837249455744],"type":"scatter"},{"hovertemplate":"\u003cb\u003eTacticalDoubtBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#EECA3B","size":14},"mode":"markers+text","name":"TacticalDoubtBot","showlegend":false,"text":["TacticalDoubtBot"],"textposition":"top center","x":[0.19798335804266043],"y":[0.42117624416223354],"type":"scatter"},{"hovertemplate":"\u003cb\u003eBalancedBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#B279A2","size":14},"mode":"markers+text","name":"BalancedBot","showlegend":false,"text":["BalancedBot"],"textposition":"top center","x":[0.24582660447547988],"y":[0.30694718861552434],"type":"scatter"},{"hovertemplate":"\u003cb\u003eTrustingBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#FF9DA7","size":14},"mode":"markers+text","name":"TrustingBot","showlegend":false,"text":["TrustingBot"],"textposition":"top center","x":[0.19858968682311548],"y":[0.3873155583212666],"type":"scatter"},{"hovertemplate":"\u003cb\u003eAdaptiveBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#9D755D","size":14},"mode":"markers+text","name":"AdaptiveBot","showlegend":false,"text":["AdaptiveBot"],"textposition":"top center","x":[0.19636363636363635],"y":[0.36634939668740163],"type":"scatter"},{"hovertemplate":"\u003cb\u003eHonestBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#BAB0AC","size":14},"mode":"markers+text","name":"HonestBot","showlegend":false,"text":["HonestBot"],"textposition":"top center","x":[0.08930199088510433],"y":[0.4736987287119213],"type":"scatter"},{"hovertemplate":"\u003cb\u003eSuspicionBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#FF7F0E","size":14},"mode":"markers+text","name":"SuspicionBot","showlegend":false,"text":["SuspicionBot"],"textposition":"top center","x":[0.09673700611529905],"y":[0.4398932449512007],"type":"scatter"},{"hovertemplate":"\u003cb\u003eRiskAwareBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#2CA02C","size":14},"mode":"markers+text","name":"RiskAwareBot","showlegend":false,"text":["RiskAwareBot"],"textposition":"top center","x":[0.12109906745610283],"y":[0.3758627601743621],"type":"scatter"},{"hovertemplate":"\u003cb\u003eAlwaysDoubtBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#D62728","size":14},"mode":"markers+text","name":"AlwaysDoubtBot","showlegend":false,"text":["AlwaysDoubtBot"],"textposition":"top center","x":[0.12869379400589445],"y":[0.32273690402588284],"type":"scatter"},{"hovertemplate":"\u003cb\u003eAlwaysBluffBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#9467BD","size":14},"mode":"markers+text","name":"AlwaysBluffBot","showlegend":false,"text":["AlwaysBluffBot"],"textposition":"top center","x":[0.18708405818002638],"y":[0.193333513606086],"type":"scatter"},{"hovertemplate":"\u003cb\u003eRandomBot\u003c\u002fb\u003e\u003cbr\u003eHard Win: %{x:.1%}\u003cbr\u003eSoft Win: %{y:.1%}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":"#4C78A8","size":14},"mode":"markers+text","name":"RandomBot","showlegend":false,"text":["RandomBot"],"textposition":"top center","x":[0.0678706270311604],"y":[0.3100446855285796],"type":"scatter"}],                        {"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"shapes":[{"line":{"color":"crimson","dash":"dot"},"type":"line","x0":0.2,"x1":0.2,"xref":"x","y0":0,"y1":1,"yref":"y domain"},{"line":{"color":"steelblue","dash":"dot"},"type":"line","x0":0,"x1":1,"xref":"x domain","y0":0.4,"y1":0.4,"yref":"y"}],"annotations":[{"showarrow":false,"text":"Hard baseline (20.0%)","x":0.2,"xanchor":"left","xref":"x","y":1,"yanchor":"top","yref":"y domain"},{"showarrow":false,"text":"Soft baseline (40.0%)","x":0,"xanchor":"left","xref":"x domain","y":0.4,"yanchor":"bottom","yref":"y"}],"xaxis":{"title":{"text":"Hard Win % (1st place)"},"tickformat":".0%"},"yaxis":{"title":{"text":"Soft Win % (2nd\u2013n\u22122)"},"tickformat":".0%"},"font":{"family":"Inter, sans-serif"},"margin":{"t":60,"b":60},"title":{"text":"Win-Type Space: Hard Win % vs Soft Win %"},"plot_bgcolor":"white","paper_bgcolor":"white","height":460},                        {"responsive": true}                    )                };            </script>        </div></div><p class="text-muted small mt-2 mb-0 text-center">Top-right = strong at both win types. Right of the red line = above hard-win baseline. Above the blue line = above soft-win baseline.</p></div>
+  </section>
+
+  <!-- All bots grid -->
+  <section id="all-bots" class="mb-5">
+    <div class="section-title">All Bots</div>
+    <div class="row g-2"><div class="col-6 col-md-4 col-lg-3"><a href="bots/ClaudeFableBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#4C78A8;margin:0 auto 8px;"></div><div class="fw-semibold small">ClaudeFableBot</div><div class="text-muted" style="font-size:.75rem;">#1 · 90.2%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/GeminiBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#F58518;margin:0 auto 8px;"></div><div class="fw-semibold small">GeminiBot</div><div class="text-muted" style="font-size:.75rem;">#2 · 74.9%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/ClaudeBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#E45756;margin:0 auto 8px;"></div><div class="fw-semibold small">ClaudeBot</div><div class="text-muted" style="font-size:.75rem;">#3 · 79.0%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/ChatGPTThinkingBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#72B7B2;margin:0 auto 8px;"></div><div class="fw-semibold small">ChatGPTThinkingBot</div><div class="text-muted" style="font-size:.75rem;">#4 · 73.7%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/ChatGPTBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#54A24B;margin:0 auto 8px;"></div><div class="fw-semibold small">ChatGPTBot</div><div class="text-muted" style="font-size:.75rem;">#5 · 69.3%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/TacticalDoubtBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#EECA3B;margin:0 auto 8px;"></div><div class="fw-semibold small">TacticalDoubtBot</div><div class="text-muted" style="font-size:.75rem;">#6 · 61.9%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/BalancedBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#B279A2;margin:0 auto 8px;"></div><div class="fw-semibold small">BalancedBot</div><div class="text-muted" style="font-size:.75rem;">#7 · 55.3%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/TrustingBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#FF9DA7;margin:0 auto 8px;"></div><div class="fw-semibold small">TrustingBot</div><div class="text-muted" style="font-size:.75rem;">#8 · 58.6%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/AdaptiveBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#9D755D;margin:0 auto 8px;"></div><div class="fw-semibold small">AdaptiveBot</div><div class="text-muted" style="font-size:.75rem;">#9 · 56.3%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/HonestBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#BAB0AC;margin:0 auto 8px;"></div><div class="fw-semibold small">HonestBot</div><div class="text-muted" style="font-size:.75rem;">#10 · 56.3%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/SuspicionBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#FF7F0E;margin:0 auto 8px;"></div><div class="fw-semibold small">SuspicionBot</div><div class="text-muted" style="font-size:.75rem;">#11 · 53.7%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/RiskAwareBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#2CA02C;margin:0 auto 8px;"></div><div class="fw-semibold small">RiskAwareBot</div><div class="text-muted" style="font-size:.75rem;">#12 · 49.7%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/AlwaysDoubtBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#D62728;margin:0 auto 8px;"></div><div class="fw-semibold small">AlwaysDoubtBot</div><div class="text-muted" style="font-size:.75rem;">#13 · 45.1%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/AlwaysBluffBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#9467BD;margin:0 auto 8px;"></div><div class="fw-semibold small">AlwaysBluffBot</div><div class="text-muted" style="font-size:.75rem;">#14 · 38.0%</div></a></div><div class="col-6 col-md-4 col-lg-3"><a href="bots/RandomBot.html" class="nav-card text-center"><div style="width:40px;height:40px;border-radius:50%;background:#4C78A8;margin:0 auto 8px;"></div><div class="fw-semibold small">RandomBot</div><div class="text-muted" style="font-size:.75rem;">#15 · 37.8%</div></a></div></div>
+  </section>
+
+</div>
+
+<footer class="text-center text-muted py-3 border-top small mt-5">
+  Dubito Bot Report &mdash; 2026-06-12 20:09
+</footer>
+</body>
+</html>

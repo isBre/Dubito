@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Compare Bots — Dubito</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+body{font-family:"Inter",system-ui,sans-serif;background:#f8f9fa}
+.navbar-brand{font-weight:700;letter-spacing:.5px}
+.nav-link{color:rgba(255,255,255,.65)!important;font-size:.875rem;padding:.3rem .6rem!important}
+.nav-link:hover,.nav-link.active{color:#fff!important}
+.dropdown-item{font-size:.875rem}
+section{scroll-margin-top:70px}
+.stat-card{background:#fff;border:1px solid #e9ecef;border-radius:8px;padding:12px 16px;text-align:center;height:100%}
+.stat-value{font-size:1.35rem;font-weight:700}
+.stat-label{font-size:.72rem;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.chart-card{background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:16px}
+table thead th{background:#343a40;color:#fff;white-space:nowrap}
+.section-title{font-size:1.35rem;font-weight:700;border-left:4px solid #4C78A8;padding-left:12px;margin-bottom:.4rem}
+.config-badge{display:inline-block;background:#e9ecef;border-radius:20px;padding:4px 14px;font-size:.85rem;font-weight:600;margin:2px}
+.tip-box{background:#fff8e1;border-left:4px solid #EECA3B;border-radius:6px;padding:12px 16px;font-size:.88rem}
+.nav-card{border:1px solid #e9ecef;border-radius:12px;padding:20px;background:#fff;text-decoration:none;color:inherit;display:block;transition:box-shadow .15s,transform .15s}
+.nav-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px);color:inherit}
+.bot-cb-label{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;border:2px solid;cursor:pointer;font-size:.82rem;font-weight:600;user-select:none;transition:opacity .15s}
+.bot-cb-label:has(input:not(:checked)){opacity:.4}
+</style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark sticky-top px-4">
+  <a class="navbar-brand" href="index.html">🎴 Dubito</a>
+  <ul class="navbar-nav flex-row gap-1 d-none d-md-flex align-items-center">
+    <li class="nav-item"><a class="nav-link" href="index.html">Overview</a></li>
+    <li class="nav-item"><a class="nav-link" href="strategy.html">Strategy</a></li>
+    <li class="nav-item"><a class="nav-link active fw-semibold" href="compare.html">Compare</a></li>
+    <li class="nav-item"><a class="nav-link" href="play/index.html">🎮 Play</a></li>
+    <li class="nav-item dropdown">
+      <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Bots</a>
+      <ul class="dropdown-menu dropdown-menu-dark" style="max-height:70vh;overflow-y:auto"><li><a class="dropdown-item" href="bots/ClaudeFableBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>ClaudeFableBot</a></li><li><a class="dropdown-item" href="bots/GeminiBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#F58518;margin-right:7px;"></span>GeminiBot</a></li><li><a class="dropdown-item" href="bots/ClaudeBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#E45756;margin-right:7px;"></span>ClaudeBot</a></li><li><a class="dropdown-item" href="bots/ChatGPTThinkingBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#72B7B2;margin-right:7px;"></span>ChatGPTThinkingBot</a></li><li><a class="dropdown-item" href="bots/ChatGPTBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#54A24B;margin-right:7px;"></span>ChatGPTBot</a></li><li><a class="dropdown-item" href="bots/TacticalDoubtBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#EECA3B;margin-right:7px;"></span>TacticalDoubtBot</a></li><li><a class="dropdown-item" href="bots/BalancedBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#B279A2;margin-right:7px;"></span>BalancedBot</a></li><li><a class="dropdown-item" href="bots/TrustingBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#FF9DA7;margin-right:7px;"></span>TrustingBot</a></li><li><a class="dropdown-item" href="bots/AdaptiveBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9D755D;margin-right:7px;"></span>AdaptiveBot</a></li><li><a class="dropdown-item" href="bots/HonestBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#BAB0AC;margin-right:7px;"></span>HonestBot</a></li><li><a class="dropdown-item" href="bots/SuspicionBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#FF7F0E;margin-right:7px;"></span>SuspicionBot</a></li><li><a class="dropdown-item" href="bots/RiskAwareBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#2CA02C;margin-right:7px;"></span>RiskAwareBot</a></li><li><a class="dropdown-item" href="bots/AlwaysDoubtBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#D62728;margin-right:7px;"></span>AlwaysDoubtBot</a></li><li><a class="dropdown-item" href="bots/AlwaysBluffBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#9467BD;margin-right:7px;"></span>AlwaysBluffBot</a></li><li><a class="dropdown-item" href="bots/RandomBot.html"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#4C78A8;margin-right:7px;"></span>RandomBot</a></li></ul>
+    </li>
+  </ul>
+</nav>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<div class="container-lg py-4">
+
+  <div class="mb-4">
+    <h1 class="fw-bold mb-1">⚖️ Compare Bots</h1>
+    <p class="text-muted lead">Select the bots you want to compare. All charts update instantly.</p>
+  </div>
+
+  <!-- Bot selector -->
+  <div class="chart-card mb-4">
+    <div class="d-flex align-items-center gap-3 mb-2">
+      <span class="fw-semibold small">Select bots:</span>
+      <button id="select-all"  class="btn btn-sm btn-outline-secondary">All</button>
+      <button id="select-none" class="btn btn-sm btn-outline-secondary">None</button>
+    </div>
+    <div class="d-flex flex-wrap gap-2"><label class="bot-cb-label" style="border-color:#4C78A8;color:#4C78A8;"><input class="bot-cb" type="checkbox" value="ClaudeFableBot" checked hidden>ClaudeFableBot</label><label class="bot-cb-label" style="border-color:#F58518;color:#F58518;"><input class="bot-cb" type="checkbox" value="GeminiBot" checked hidden>GeminiBot</label><label class="bot-cb-label" style="border-color:#E45756;color:#E45756;"><input class="bot-cb" type="checkbox" value="ClaudeBot" checked hidden>ClaudeBot</label><label class="bot-cb-label" style="border-color:#72B7B2;color:#72B7B2;"><input class="bot-cb" type="checkbox" value="ChatGPTThinkingBot" checked hidden>ChatGPTThinkingBot</label><label class="bot-cb-label" style="border-color:#54A24B;color:#54A24B;"><input class="bot-cb" type="checkbox" value="ChatGPTBot" checked hidden>ChatGPTBot</label><label class="bot-cb-label" style="border-color:#EECA3B;color:#EECA3B;"><input class="bot-cb" type="checkbox" value="TacticalDoubtBot" checked hidden>TacticalDoubtBot</label><label class="bot-cb-label" style="border-color:#B279A2;color:#B279A2;"><input class="bot-cb" type="checkbox" value="BalancedBot" checked hidden>BalancedBot</label><label class="bot-cb-label" style="border-color:#FF9DA7;color:#FF9DA7;"><input class="bot-cb" type="checkbox" value="TrustingBot" checked hidden>TrustingBot</label><label class="bot-cb-label" style="border-color:#9D755D;color:#9D755D;"><input class="bot-cb" type="checkbox" value="AdaptiveBot" checked hidden>AdaptiveBot</label><label class="bot-cb-label" style="border-color:#BAB0AC;color:#BAB0AC;"><input class="bot-cb" type="checkbox" value="HonestBot" checked hidden>HonestBot</label><label class="bot-cb-label" style="border-color:#FF7F0E;color:#FF7F0E;"><input class="bot-cb" type="checkbox" value="SuspicionBot" checked hidden>SuspicionBot</label><label class="bot-cb-label" style="border-color:#2CA02C;color:#2CA02C;"><input class="bot-cb" type="checkbox" value="RiskAwareBot" checked hidden>RiskAwareBot</label><label class="bot-cb-label" style="border-color:#D62728;color:#D62728;"><input class="bot-cb" type="checkbox" value="AlwaysDoubtBot" checked hidden>AlwaysDoubtBot</label><label class="bot-cb-label" style="border-color:#9467BD;color:#9467BD;"><input class="bot-cb" type="checkbox" value="AlwaysBluffBot" checked hidden>AlwaysBluffBot</label><label class="bot-cb-label" style="border-color:#4C78A8;color:#4C78A8;"><input class="bot-cb" type="checkbox" value="RandomBot" checked hidden>RandomBot</label></div>
+  </div>
+
+  <!-- Stats table -->
+  <div class="chart-card mb-4">
+    <div class="section-title mb-3">Stats Table</div>
+    <p class="text-muted small mb-2">Best value in each row is highlighted green.</p>
+    <div id="cmp-table"></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="chart-card">
+        <div class="section-title mb-2">Behavioral Fingerprint</div>
+        <div id="cmp-radar" style="width:100%;height:420px;"></div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="chart-card">
+        <div class="section-title mb-2">Outcome Distribution</div>
+        <p class="text-muted small mb-0">Hard Win = 1st place, Soft Win = 2nd–n−2, Loss = last.</p>
+        <div id="cmp-outcome" style="width:100%;height:360px;"></div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="chart-card">
+        <div class="section-title mb-2">Behavioral Metrics</div>
+        <p class="text-muted small mb-0">Side-by-side comparison of bluffing and doubting profiles.</p>
+        <div id="cmp-metrics" style="width:100%;height:360px;"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PLAYERS  = ["ClaudeFableBot", "GeminiBot", "ClaudeBot", "ChatGPTThinkingBot", "ChatGPTBot", "TacticalDoubtBot", "BalancedBot", "TrustingBot", "AdaptiveBot", "HonestBot", "SuspicionBot", "RiskAwareBot", "AlwaysDoubtBot", "AlwaysBluffBot", "RandomBot"];
+const COLOURS  = {"ClaudeFableBot": "#4C78A8", "GeminiBot": "#F58518", "ClaudeBot": "#E45756", "ChatGPTThinkingBot": "#72B7B2", "ChatGPTBot": "#54A24B", "TacticalDoubtBot": "#EECA3B", "BalancedBot": "#B279A2", "TrustingBot": "#FF9DA7", "AdaptiveBot": "#9D755D", "HonestBot": "#BAB0AC", "SuspicionBot": "#FF7F0E", "RiskAwareBot": "#2CA02C", "AlwaysDoubtBot": "#D62728", "AlwaysBluffBot": "#9467BD", "RandomBot": "#4C78A8"};
+const METRICS  = {"ClaudeFableBot": {"score": 0.6592873996601805, "win_rate": 0.9019026290983976, "hard_win_rate": 0.4166721702219634, "soft_win_rate": 0.4852304588764342, "loss_rate": 0.09809737090160243, "avg_position": 0.7719075522785814, "bluff_rate": 0.23682684061394293, "bluff_stealth": 0.8242832611173296, "doubt_rate": 0.5831502199369313, "doubt_accuracy": 0.5685740167325106, "cards_per_turn": 1.9968068725049921, "games": 333118}, "GeminiBot": {"score": 0.5281278161497676, "win_rate": 0.7488346192191275, "hard_win_rate": 0.30742101308040753, "soft_win_rate": 0.44141360613872, "loss_rate": 0.25116538078087247, "avg_position": 0.6506844584959199, "bluff_rate": 0.4690131551694549, "bluff_stealth": 0.38079748660183393, "doubt_rate": 0.4486727922152614, "doubt_accuracy": 0.762877135600644, "cards_per_turn": 2.3658353207127343, "games": 334011}, "ClaudeBot": {"score": 0.5279931404846789, "win_rate": 0.7903936699911247, "hard_win_rate": 0.26559261097823306, "soft_win_rate": 0.5248010590128916, "loss_rate": 0.20960633000887524, "avg_position": 0.6631518670617454, "bluff_rate": 0.3194431934648616, "bluff_stealth": 0.4334017954486544, "doubt_rate": 0.48096808745355957, "doubt_accuracy": 0.7088490726837385, "cards_per_turn": 2.086294836556752, "games": 332385}, "ChatGPTThinkingBot": {"score": 0.47991056700876333, "win_rate": 0.736655530029931, "hard_win_rate": 0.22316560398759575, "soft_win_rate": 0.5134899260423352, "loss_rate": 0.26334446997006905, "avg_position": 0.6222553288906847, "bluff_rate": 0.31786279321371325, "bluff_stealth": 0.35151756972560966, "doubt_rate": 0.582464230071659, "doubt_accuracy": 0.6593849748141755, "cards_per_turn": 2.13179463579552, "games": 333434}, "ChatGPTBot": {"score": 0.47471961564447107, "win_rate": 0.6927588018917499, "hard_win_rate": 0.2566804293971924, "soft_win_rate": 0.43607837249455744, "loss_rate": 0.3072411981082501, "avg_position": 0.6152099191752937, "bluff_rate": 0.534108027942443, "bluff_stealth": 0.3877439637609537, "doubt_rate": 0.6056936716476129, "doubt_accuracy": 0.6536180482609213, "cards_per_turn": 2.405078311854853, "games": 333025}, "TacticalDoubtBot": {"score": 0.4085714801237772, "win_rate": 0.619159602204894, "hard_win_rate": 0.19798335804266043, "soft_win_rate": 0.42117624416223354, "loss_rate": 0.38084039779510603, "avg_position": 0.5622753731710715, "bluff_rate": 0.5641623036737224, "bluff_stealth": 0.4104096844473896, "doubt_rate": 0.7891835709864649, "doubt_accuracy": 0.5017820412270447, "cards_per_turn": 2.516582735155318, "games": 332533}, "BalancedBot": {"score": 0.3993001987832421, "win_rate": 0.5527737930910043, "hard_win_rate": 0.24582660447547988, "soft_win_rate": 0.30694718861552434, "loss_rate": 0.4472262069089958, "avg_position": 0.5569478401996503, "bluff_rate": 0.745646585980235, "bluff_stealth": 0.29832704675087135, "doubt_rate": 0.3476114910185518, "doubt_accuracy": 0.8078218758383102, "cards_per_turn": 2.688326885758244, "games": 332523}, "TrustingBot": {"score": 0.39224746598374877, "win_rate": 0.5859052451443821, "hard_win_rate": 0.19858968682311548, "soft_win_rate": 0.3873155583212666, "loss_rate": 0.4140947548556179, "avg_position": 0.5598702475977086, "bluff_rate": 0.3957038243171125, "bluff_stealth": 0.3711974137577502, "doubt_rate": 0.0, "doubt_accuracy": 0.0, "cards_per_turn": 2.1219042988394747, "games": 334252}, "AdaptiveBot": {"score": 0.37953833470733717, "win_rate": 0.562713033051038, "hard_win_rate": 0.19636363636363635, "soft_win_rate": 0.36634939668740163, "loss_rate": 0.437286966948962, "avg_position": 0.5398572534913022, "bluff_rate": 0.6854262504273865, "bluff_stealth": 0.3795809222229969, "doubt_rate": 0.5143772102785595, "doubt_accuracy": 0.5660092884235218, "cards_per_turn": 2.6220780866402285, "games": 333575}, "HonestBot": {"score": 0.326151355241065, "win_rate": 0.5630007195970257, "hard_win_rate": 0.08930199088510433, "soft_win_rate": 0.4736987287119213, "loss_rate": 0.4369992804029743, "avg_position": 0.49124840089551797, "bluff_rate": 0.0, "bluff_stealth": 0.0, "doubt_rate": 0.6414755783967464, "doubt_accuracy": 0.4082166194477654, "cards_per_turn": 1.593170876351338, "games": 333520}, "SuspicionBot": {"score": 0.3166836285908994, "win_rate": 0.5366302510664998, "hard_win_rate": 0.09673700611529905, "soft_win_rate": 0.4398932449512007, "loss_rate": 0.46336974893350025, "avg_position": 0.487217113630891, "bluff_rate": 0.0, "bluff_stealth": 0.0, "doubt_rate": 0.8611567950050455, "doubt_accuracy": 0.4308657377308429, "cards_per_turn": 1.7610439220547407, "games": 333099}, "RiskAwareBot": {"score": 0.3090304475432839, "win_rate": 0.49696182763046487, "hard_win_rate": 0.12109906745610283, "soft_win_rate": 0.3758627601743621, "loss_rate": 0.5030381723695351, "avg_position": 0.4869083841191506, "bluff_rate": 0.35580367874350183, "bluff_stealth": 0.4072878074389614, "doubt_rate": 0.31685770367981125, "doubt_accuracy": 0.26006780666715396, "cards_per_turn": 2.1238279642549664, "games": 334247}, "AlwaysDoubtBot": {"score": 0.2900622460188359, "win_rate": 0.45143069803177727, "hard_win_rate": 0.12869379400589445, "soft_win_rate": 0.32273690402588284, "loss_rate": 0.5485693019682227, "avg_position": 0.4725446236526903, "bluff_rate": 0.49702887793765266, "bluff_stealth": 0.46704357685134784, "doubt_rate": 1.0, "doubt_accuracy": 0.39994759312480727, "cards_per_turn": 2.5367791171763154, "games": 333194}, "AlwaysBluffBot": {"score": 0.28375081498306937, "win_rate": 0.3804175717861124, "hard_win_rate": 0.18708405818002638, "soft_win_rate": 0.193333513606086, "loss_rate": 0.6195824282138876, "avg_position": 0.4720842634906605, "bluff_rate": 0.9975840433779692, "bluff_stealth": 0.2565700697498522, "doubt_rate": 0.0, "doubt_accuracy": 0.0, "cards_per_turn": 2.9646237889470384, "games": 332829}, "RandomBot": {"score": 0.2228929697954502, "win_rate": 0.37791531255974004, "hard_win_rate": 0.0678706270311604, "soft_win_rate": 0.3100446855285796, "loss_rate": 0.62208468744026, "avg_position": 0.421532938650884, "bluff_rate": 0.5777365379990423, "bluff_stealth": 0.4864958072040564, "doubt_rate": 0.4083010542096802, "doubt_accuracy": 0.4510278238599269, "cards_per_turn": 1.6208701269737031, "games": 334784}};
+
+const PCT_KEYS = ['win_rate','hard_win_rate','soft_win_rate','loss_rate',
+                  'bluff_rate','bluff_stealth','doubt_rate','doubt_accuracy'];
+const ALL_KEYS = ['score', ...PCT_KEYS, 'avg_position','cards_per_turn'];
+const ALL_LABELS = {
+  score:'Score', win_rate:'Win Rate', hard_win_rate:'Hard Win %', soft_win_rate:'Soft Win %',
+  loss_rate:'Loss Rate', bluff_rate:'Bluff Rate', bluff_stealth:'Bluff Stealth',
+  doubt_rate:'Doubt Rate', doubt_accuracy:'Doubt Accuracy',
+  avg_position:'Avg Position', cards_per_turn:'Cards/Turn',
+};
+
+function fmt(val, key) {
+  if (key === 'score') return val.toFixed(3);
+  return PCT_KEYS.includes(key) ? (val*100).toFixed(1)+'%' : val.toFixed(2);
+}
+
+function selected() {
+  return [...document.querySelectorAll('.bot-cb:checked')].map(c => c.value);
+}
+
+const PLOTLY_LAYOUT = {
+  paper_bgcolor:'white', plot_bgcolor:'white',
+  font:{family:'Inter, sans-serif'},
+  legend:{orientation:'h', y:1.08, x:0},
+  margin:{t:20, b:60, l:40, r:20},
+};
+
+function renderRadar(sel) {
+  const axes = ['Win Rate','Bluff Rate','Bluff Stealth','Doubt Rate','Doubt Accuracy','Cards/Turn'];
+  const keys = ['win_rate','bluff_rate','bluff_stealth','doubt_rate','doubt_accuracy','cards_per_turn'];
+  const maxCpt = Math.max(...PLAYERS.map(b => METRICS[b].cards_per_turn)) || 1;
+  const closed = [...axes, axes[0]];
+  const data = sel.map(b => {
+    const m = METRICS[b];
+    const vals = keys.map(k => k === 'cards_per_turn' ? m[k] / maxCpt : m[k]);
+    return {
+      type:'scatterpolar', name:b,
+      r:[...vals, vals[0]], theta:closed,
+      fill:'toself', line:{color:COLOURS[b]},
+      fillcolor:COLOURS[b], opacity:0.2,
+    };
+  });
+  Plotly.react('cmp-radar', data, {
+    ...PLOTLY_LAYOUT,
+    polar:{radialaxis:{visible:true, range:[0,1], tickformat:'.0%'}},
+    margin:{t:20, b:40, l:60, r:180}, height:420,
+  }, {responsive:true});
+}
+
+function renderOutcome(sel) {
+  const data = sel.map(b => {
+    const m = METRICS[b];
+    const ys = [m.hard_win_rate, m.soft_win_rate, m.loss_rate];
+    return {
+      type:'bar', name:b,
+      x:['Hard Win','Soft Win','Loss'], y:ys,
+      marker:{color:COLOURS[b]},
+      text:ys.map(v => (v*100).toFixed(1)+'%'), textposition:'outside',
+    };
+  });
+  Plotly.react('cmp-outcome', data, {
+    ...PLOTLY_LAYOUT,
+    barmode:'group', yaxis:{tickformat:'.0%'},
+    height:360,
+  }, {responsive:true});
+}
+
+function renderMetrics(sel) {
+  const metKeys = ['bluff_rate','bluff_stealth','doubt_rate','doubt_accuracy'];
+  const metLabels = ['Bluff Rate','Bluff Stealth','Doubt Rate','Doubt Accuracy'];
+  const data = sel.map(b => {
+    const m = METRICS[b];
+    return {
+      type:'bar', name:b,
+      x:metLabels, y:metKeys.map(k => m[k]),
+      marker:{color:COLOURS[b]},
+      text:metKeys.map(k => (m[k]*100).toFixed(1)+'%'), textposition:'outside',
+    };
+  });
+  Plotly.react('cmp-metrics', data, {
+    ...PLOTLY_LAYOUT,
+    barmode:'group', yaxis:{tickformat:'.0%'},
+    height:360,
+  }, {responsive:true});
+}
+
+function renderTable(sel) {
+  if (!sel.length) { document.getElementById('cmp-table').innerHTML = ''; return; }
+  let html = '<div class="table-responsive"><table class="table table-bordered align-middle bg-white mb-0"><thead><tr><th>Metric</th>';
+  for (const b of sel) html += `<th style="color:${COLOURS[b]}">${b}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const k of ALL_KEYS) {
+    const best = sel.reduce((a, b) =>
+      k === 'loss_rate' ? (METRICS[a][k] < METRICS[b][k] ? a : b)
+                        : (METRICS[a][k] > METRICS[b][k] ? a : b), sel[0]);
+    html += `<tr><td class="text-muted small">${ALL_LABELS[k]}</td>`;
+    for (const b of sel) {
+      const isBest = b === best && sel.length > 1;
+      html += `<td class="text-end fw-semibold" style="${isBest ? 'background:#e8f5e9' : ''}">${fmt(METRICS[b][k], k)}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  document.getElementById('cmp-table').innerHTML = html;
+}
+
+function updateAll() {
+  const sel = selected();
+  renderRadar(sel);
+  renderOutcome(sel);
+  renderMetrics(sel);
+  renderTable(sel);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  updateAll();
+  document.querySelectorAll('.bot-cb').forEach(cb => cb.addEventListener('change', updateAll));
+  document.getElementById('select-all').addEventListener('click', () => {
+    document.querySelectorAll('.bot-cb').forEach(c => c.checked = true);
+    updateAll();
+  });
+  document.getElementById('select-none').addEventListener('click', () => {
+    document.querySelectorAll('.bot-cb').forEach(c => c.checked = false);
+    updateAll();
+  });
+});
+</script>
+
+
+<footer class="text-center text-muted py-3 border-top small mt-5">
+  Dubito Bot Report &mdash; 2026-06-12 20:09
+</footer>
+</body>
+</html>
