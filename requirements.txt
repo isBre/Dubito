@@ -1,0 +1,10 @@
+# Simulation + experiments + report
+pyyaml
+tqdm
+plotly
+
+# Web app (python3 app.py)
+flask
+
+# RL training (rl/) needs extras, install separately:
+#   pip install stable-baselines3 gymnasium

@@ -167,10 +167,11 @@ def _process_end_of_turn(game_handler: GameHandler) -> str:
         discarded_cards = p.discard_cards()
         if discarded_cards:
             log += f"Player{p.id} removed: {discarded_cards}\n"
-            game_handler.append_event(DiscardEvent(
-                player_id=p.id,
-                card_number=discarded_cards[0],
-            ))
+            for card_number in discarded_cards:
+                game_handler.append_event(DiscardEvent(
+                    player_id=p.id,
+                    card_number=card_number,
+                ))
         game_handler.set_discarded_cards(discarded_cards)
 
     for winner in [p for p in game_handler.playing_players() if p.has_no_cards()]:

@@ -202,14 +202,15 @@ class GameSession:
             disc = p.discard_cards()
             if disc:
                 gh.set_discarded_cards(disc)
-                gh.append_event(DiscardEvent(player_id=p.id, card_number=disc[0]))
-                resolve_events.append({
-                    "msg":        f"{self._lbl(p)} discards four {cn(disc[0])}s.",
-                    "event_type": "discard",
-                    "actor_id":   p.id,
-                    "target_id":  p.id,
-                    **self.snap(),
-                })
+                for number in disc:
+                    gh.append_event(DiscardEvent(player_id=p.id, card_number=number))
+                    resolve_events.append({
+                        "msg":        f"{self._lbl(p)} discards four {cn(number)}s.",
+                        "event_type": "discard",
+                        "actor_id":   p.id,
+                        "target_id":  p.id,
+                        **self.snap(),
+                    })
 
         # Win check
         for winner in [p for p in gh.playing_players() if p.has_no_cards()]:

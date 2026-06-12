@@ -405,8 +405,8 @@ class DubitoEnv(gym.Env):
         for p in gh.playing_players():
             discarded = p.discard_cards()
             gh.set_discarded_cards(discarded)
-            if discarded:
-                gh.append_event(DiscardEvent(player_id=p.id, card_number=discarded[0]))
+            for number in discarded:
+                gh.append_event(DiscardEvent(player_id=p.id, card_number=number))
 
         if prev is not None and prev.has_no_cards():
             gh.set_winners(prev)

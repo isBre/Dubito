@@ -128,133 +128,49 @@ Each bot returns a `TurnOutput` dataclass:
 The aim of this project is to attempt to create AIs that achieve better results than other bots. Let's see how to accomplish this.
 
 ## Create your AI
-To create your AI, you need to create a class that extends the PlayerAI class. Examples are provided within the scripts `bots/probability.py` and `bots/rule_based.py`. As shown in the previous image, it is necessary to divide the bot's move into two parts: 
 
-- If it's **the first to play**: then it must play cards (in other words, it cannot doubt).
-- If it's **not the first to play**: in this case, the player has free choice: to doubt or to play cards.
+Create a class that extends `BotBase` (`bots/base.py`) and implement the five A–E hooks of the decision tree above. Drop the file in `bots/manual/` (or `bots/llms/` for LLM-authored strategies) and import it in that package's `__init__.py` — bots register themselves automatically.
+
+Bots that need full control over *which* cards are played (joker tactics, custom bluff sizes, opener declarations) can override `play_first_turn` / `play_regular_turn` directly instead — see `bots/llms/claude_fable.py`.
 
 ## Test your AI
 
-To test your AI, refer to `experiments.py`. Import your bot and add it to the ALGORITHM list. Then execute the script using `python experiments.py`; the results will be saved in `all_games.yaml` and an HTML report will be generated.
+Run `python -m experiments`. The bot pool, number of games, and output paths are configured in `experiment.yaml` (every registered bot plays when no explicit `bots:` list is given). Results are saved to `all_games.yaml` and a static HTML report is written to `report_site/`.
 
 # Experiments
 
-This is a multiplayer game, so it's complex to have a general score to associate with a bot. However, we can rely on a relative value (a bot's strength also depends on its opponents), and it's also possible to see which bots each one performs well against. My strategy for evaluating the bots is to play a very large number of games (1 million) and collect statistics along the way (for more information, refer to `experiments.py` and `handlers.py`).
+This is a multiplayer game, so it's complex to have a general score to associate with a bot. However, we can rely on a relative value (a bot's strength also depends on its opponents), and it's also possible to see which bots each one performs well against. My strategy for evaluating the bots is to play a very large number of games (1 million) and collect statistics along the way (see `experiments/runner.py` and `experiments/stats.py`).
+
+The primary ranking metric is **Score = hard wins + 0.5 × soft wins**, where a *hard win* is finishing first and a *soft win* is any other finish that escapes the final losing pair.
 
 ## Bots
 
-Here you'll find a comprehensive list of all the bots utilized in this experiment, followed by an assessment of their performance.
+Each bot lives in its own file under `bots/manual/` (hand-written strategies) and `bots/llms/` (strategies authored by LLMs), with its strategy documented in the class docstring. The report site contains a per-bot page with win rates, behavioral stats, and neighbor matchups.
 
-### RandomBoi
+# Report
 
-- In the **initial hand**, decides with a 50% chance whether to bluff or play honestly.
-- In the **regular hands**: 
-  - if it can play seriously, it has a 33% chance of playing honestly, bluffing, or doubting; 
-  - otherwise, it has a 50% chance of bluffing or doubting.
-Plays one card at a time.
+`python -m experiments` generates the report site after playing the games. To rebuild the site from saved results without replaying anything:
 
-### AlwaysTruthful
+```bash
+python -m experiments.report                                # all_games.yaml → report_site/
+python -m experiments.report results/all_games.yaml --config results/experiment.yaml
+```
 
-- In the **initial hand** play truthfully.
-- In the **regular hands**: 
-  - if can play truthfully, play truthfully; 
-  - otherwise, doubt.
-Tries to maximize the amout of cards played
+## Publish the report on GitHub Pages
 
-### MrNoDoubt
+The final report is published from the committed snapshot in `results/` (`all_games.yaml` plus the `experiment.yaml` it was produced with) by the `Publish report` workflow (`.github/workflows/report.yml`), which rebuilds the site in CI and deploys it to GitHub Pages.
 
-- In the **initial hand** play truthfully.
-- In the **regular hands**: 
-  - if can play truthfully, play truthfully; 
-  - otherwise, bluffs.
-Tries to maximize the amout of cards played
+One-time setup: repo **Settings → Pages → Source: "GitHub Actions"**. After that, the report republishes automatically whenever `results/` changes on `main` (or on demand from the Actions tab via *Run workflow*).
 
-### JustPutCards
+To publish a new final report: run the experiment, refresh the snapshot, and push:
 
-- In the **initial hand** bluffs placing 3 random cards.
-- In the **regular hands**: bluffs placing 3 random cards.
-Tries to maximize the amout of cards played
-
-### MrDoubt
-
-- In the **initial hand** decides with a 50% chance whether to bluff or play honestly.
-- In the **regular hands** doubt.
-Tries to maximize the amout of cards played
-
-### AdaptyBoi
-
-Tailors its gameplay based on the players around it.
-- In the **initial hand**, if the next player doubts a lot, then it will play honestly; otherwise, it will try to bluff.
-- In the **regular hands**, it tries to determine if the previous player is honest:
-    - If the previous player is honest, it tries to see if the next player doubts a lot:
-        - If the next player doubts a lot, then it tries to see if it can play honestly:
-            - If it can play honestly, it will do so.
-            - Otherwise, it will choose whether to bluff or doubt based on the higher probability between the next player doubting and the previous player playing honestly.
-        - Otherwise, it bluffs.
-    - Otherwise, it doubts.
-
-### SusBoi
-
-- In the **initial hand** there is a 67% probability of bluffing otherwise is honest
-- In the **regular hands** Doubt with higher probability  if the previous player plays a lot of cards (0.3 for 1 card, 0.6 for 2 card and 0.9 for 3 cards) otherwise there is a 67% probability of bluffing otherwise is honest.
-
-### RiskCounter
-
-Aggressive when the streak is low otherwise Honest. Calculates the risk value considering: the number of cards held by the next player, the number of cards held by the bot, and the streak.
-
-### StefaBot
-
-- If prev_player was playing first turn, then doubt
-- If prev_player was not playing first turn then check the number of cards of prev_player
-  - if prev_player has played 3 cards doubt,
-  - otherwise then with 50% probability be honest or doubt
-
-### ClaudeBot
-
-A score-based bot that tries to make the mathematically correct decision at each node.
-
-- In the **initial hand**, always plays honestly and maximizes cards played. Concretely: picks all cards of the most-common number in its hand and declares that number. Zero risk, maximum card removal.
-
-- In the **regular hands**, decides whether to doubt using a **suspicion score**:
-
-  ```
-  suspicion = 0.5 × prev_dishonesty_rate + 0.5 × card_suspicion
-
-  card_suspicion:  1 card played → 0.05  (not suspicious)
-                   2 cards played → 0.30
-                   3 cards played → 0.65  (very suspicious)
-  ```
-
-  If prev started the round (they picked the number themselves), `card_suspicion` is cut to 40% — they were more likely to have that number.
-
-  The doubt threshold then scales with how many cards ClaudeBot is currently holding:
-
-  | My card count | Threshold | Reasoning |
-  |---|---|---|
-  | ≤ 4 | 0.75 | Nearly winning — stay safe, avoid picking up cards |
-  | 5–17 | 0.50 | Balanced play |
-  | ≥ 18 | 0.30 | Already drowning in cards — be aggressive |
-
-  Additionally: if prev has **0 cards** (they are about to win), it always doubts regardless of score.
-
-  If ClaudeBot **cannot play truthfully** anyway, the threshold is lowered by 0.15 — if it has to bluff, doubting is sometimes the better gamble.
-
-- **Bluffing** (node D — only when honest play is also possible): ClaudeBot bluffs only when two conditions are both true:
-  1. The next player's doubt rate is **below 35%** (they're unlikely to catch the bluff)
-  2. ClaudeBot has **fewer than 3 matching cards** — because bluffing always plays 3 random cards, while honest play only dumps the matching ones. If there are fewer than 3 matches, bluffing removes *more* cards for the same risk.
-
-- Always **maximizes** cards played.
-
-
-# Result
-
-The overall results are depicted in the HTML report (run the experiments to generate it).
-
-## Individual Results
-
-The HTML report includes per-bot breakdowns showing win rates against each neighbor bot.
+```bash
+python -m experiments
+cp all_games.yaml experiment.yaml results/
+```
 
 # Final Conclusion
-- The game heavily depends on the chosen **position** at the beginning of the match and consequently on the players preceding and succeeding you. 
-- As evident from the win rate graphs of each bot, there are delineations between "**aggressive**" bots (with a tendency to bluff) and "**passive**" bots (inclined to play honestly: doubting and playing cards associated with the correct number). Typically, aggressive bots exhibit greater variance in win rate concerning succeeding players, while passive bots show more variance concerning preceding players. Aggressive players need to pay closer attention to succeeding players, while passive ones focus on preceding players. 
-- At present, the best algorithm appears to be **AdaptyBoi**, which strikes a good balance between aggressive and passive playstyles. Hence, identifying the strategies of the players around you is crucial and adapting accordingly. Unfortunately, there isn't a method capable of decisively winning against all types of opponents, considering the game's reliance on luck.
+
+- The game heavily depends on the chosen **position** at the beginning of the match and consequently on the players preceding and succeeding you.
+- There is a clear split between "**aggressive**" bots (with a tendency to bluff) and "**passive**" bots (inclined to play honestly: doubting and playing cards associated with the correct number). Aggressive bots exhibit greater variance in win rate concerning succeeding players, while passive bots show more variance concerning preceding players.
+- Luck and position matter, but they are **not the whole story**: the current champion is **ClaudeFableBot** (`bots/llms/claude_fable.py`), which wins decisively both in the full field and in a top-5-only field. It combines exact card tracking (revealed pile pickups, discards, its own pile contributions), Beta-smoothed opponent bluff/doubt models, a hypergeometric feasibility check on every claim, and expected-value action selection — plus an engine-exact endgame: a hand-emptying play can never be doubted, so reaching ≤3 cards through un-doubtable plays is a guaranteed win.

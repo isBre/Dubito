@@ -920,6 +920,29 @@ class TestProcessEndOfTurn(unittest.TestCase):
         _process_end_of_turn(gh)
         self.assertFalse(any(isinstance(e, DiscardEvent) for e in gh.history))
 
+    def test_pile_pickup_completing_two_four_of_a_kinds_emits_two_discard_events(self):
+        # Board holds an old play [7, 9] buried under an honest [5, 5] on top.
+        gh, stats, players = _setup_game_for_doubt([7, 9], current_number=5)
+        gh.set_board_cards([5, 5])
+        doubter = players[1]
+        doubter.add_cards([7, 7, 7, 9, 9, 9])
+        players[0].add_cards([1, 2])
+        players[2].add_cards([3, 4])
+
+        # Wrong doubt: the doubter picks up the whole pile, completing four 7s and four 9s.
+        _resolve_doubt(gh, doubter, players[0], stats)
+        self.assertEqual(doubter.cards.hand, [5, 5, 7, 7, 7, 7, 9, 9, 9, 9])
+
+        _process_end_of_turn(gh)
+
+        discard_events = [e for e in gh.history if isinstance(e, DiscardEvent)]
+        self.assertEqual({e.card_number for e in discard_events}, {7, 9})
+        self.assertEqual(len(discard_events), 2)
+        self.assertTrue(all(e.player_id == doubter.id for e in discard_events))
+        self.assertEqual(doubter.cards.hand, [5, 5])
+        self.assertNotIn(7, gh.board.availables)
+        self.assertNotIn(9, gh.board.availables)
+
 
 if __name__ == '__main__':
     unittest.main()
