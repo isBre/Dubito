@@ -1,7 +1,9 @@
 name: Publish report
 
-# Rebuilds the HTML report from the committed results snapshot (results/) and
-# force-pushes it to the gh-pages branch, which GitHub Pages serves.
+# Rebuilds the HTML report from the committed results snapshot (results/),
+# adds the playable in-browser game under /play (the pure-Python engine runs
+# through Pyodide — no server), and force-pushes everything to the gh-pages
+# branch, which GitHub Pages serves.
 # No games are played in CI; the site never lives on code branches.
 
 on:
@@ -12,6 +14,12 @@ on:
       - 'results/**'
       - 'experiments/report/**'
       - '.github/workflows/report.yml'
+      - 'web/**'
+      - 'templates/index.html'
+      - 'web_session.py'
+      - 'dubito/**'
+      - 'bots/**'
+      - 'machine_learning/dataset.py'
 
 permissions:
   contents: write
@@ -30,6 +38,7 @@ jobs:
           python-version: '3.12'
       - run: pip install pyyaml plotly
       - run: python -m experiments.report results/all_games.yaml --config results/experiment.yaml --out site
+      - run: python web/build_static.py --out site/play
       - name: Push site to gh-pages
         run: |
           touch site/.nojekyll

@@ -987,12 +987,23 @@ function ordinal(n) {
 }
 
 async function api(path, method = 'GET', body = null) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    const msg = err.error || res.statusText;
+  let ok, getJson;
+  if (window.dubitoLocalApi) {
+    // Static build (GitHub Pages): the Python engine runs in this browser
+    // via Pyodide — see web/static_backend.js. No server involved.
+    const r = await window.dubitoLocalApi(path, method, body);
+    ok = r.status < 400;
+    getJson = async () => r.data;
+  } else {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(path, opts);
+    ok = res.ok;
+    getJson = () => res.json().catch(() => ({ error: res.statusText }));
+  }
+  if (!ok) {
+    const err = await getJson();
+    const msg = err.error || 'request failed';
     if (msg === 'game not found') {
       // Server was restarted — session lost. Return to setup cleanly.
       gameId    = null;
@@ -1013,7 +1024,7 @@ async function api(path, method = 'GET', body = null) {
     }
     throw new Error(msg);
   }
-  return res.json();
+  return getJson();
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

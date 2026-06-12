@@ -73,6 +73,7 @@ def nav(players: list, bot_colour: dict, active: str, prefix: str = '') -> str:
     {_link("index.html",    "Overview", "overview")}
     {_link("strategy.html", "Strategy", "strategy")}
     {_link("compare.html",  "Compare",  "compare")}
+    {_link("play/index.html", "🎮 Play", "play")}
     <li class="nav-item dropdown">
       <a class="{dd_cls}" href="#" role="button" data-bs-toggle="dropdown">Bots</a>
       <ul class="dropdown-menu dropdown-menu-dark" style="max-height:70vh;overflow-y:auto">{bot_items}</ul>

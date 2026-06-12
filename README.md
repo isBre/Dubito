@@ -147,6 +147,13 @@ The primary ranking metric is **Score = hard wins + 0.5 × soft wins**, where a 
 
 Each bot lives in its own file under `bots/manual/` (hand-written strategies) and `bots/llms/` (strategies authored by LLMs), with its strategy documented in the class docstring. The report site contains a per-bot page with win rates, behavioral stats, and neighbor matchups.
 
+# Play against the bots
+
+You can play Dubito against any mix of the bots — same engine, same rules, with animated plays, doubts and pile pickups.
+
+- **In the browser, no install:** **https://isbre.github.io/Dubito/play/** — the pure-Python engine (`web_session.py`, `dubito/`, `bots/`) runs inside the page through [Pyodide](https://pyodide.org/), so GitHub Pages can host it with no server. `web/build_static.py` produces this build.
+- **Locally:** `pip install flask && python app.py`, then open http://127.0.0.1:5001. The Flask routes are a thin shim over the same `web_session.py` handlers the static build uses.
+
 # Report
 
 `python -m experiments` generates the report site after playing the games. To rebuild the site from saved results without replaying anything:
@@ -158,9 +165,9 @@ python -m experiments.report results/all_games.yaml --config results/experiment.
 
 ## Publish the report on GitHub Pages
 
-The published report lives at **https://isbre.github.io/Dubito/**, served from the dedicated `gh-pages` branch (generated HTML never lives on code branches). Pages is configured with **Settings → Pages → Deploy from a branch: `gh-pages` / root**.
+The published site lives at **https://isbre.github.io/Dubito/** (the report, with the playable game under [`/play/`](https://isbre.github.io/Dubito/play/)), served from the dedicated `gh-pages` branch (generated HTML never lives on code branches). Pages is configured with **Settings → Pages → Deploy from a branch: `gh-pages` / root**.
 
-The `Publish report` workflow (`.github/workflows/report.yml`) republishes automatically whenever the committed snapshot in `results/` (`all_games.yaml` plus the `experiment.yaml` it was produced with) changes on `main` — or on demand from the Actions tab via *Run workflow*. It rebuilds the site in CI from the snapshot and force-pushes it to `gh-pages`.
+The `Publish report` workflow (`.github/workflows/report.yml`) republishes automatically whenever the committed snapshot in `results/` (`all_games.yaml` plus the `experiment.yaml` it was produced with) or the game's engine/UI sources change on `main` — or on demand from the Actions tab via *Run workflow*. It rebuilds the report from the snapshot, builds the static game with `web/build_static.py`, and force-pushes the result to `gh-pages`.
 
 To publish a new final report: run the experiment, refresh the snapshot, and push:
 
