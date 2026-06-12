@@ -19,6 +19,7 @@ class PlayersHandler:
         self.prev = None
         self.this = None
         self.next = None
+        self.empty_order: list[int] = []        # ids in hand-emptying order
 
 
 class BoardHandler:
@@ -28,6 +29,7 @@ class BoardHandler:
         self.number = 0                         # declared number (0 = first hand)
         self.availables = list(range(1, deck_size))
         self.latests = []                       # cards placed by the last player
+        self.latest_author = None               # player id who placed latests
 
 
 class GameHandler:
@@ -102,13 +104,38 @@ class GameHandler:
         self.board.number = 0
         self.turn.streak = 0
         self.board.latests = []
+        self.board.latest_author = None
 
     def set_current_number(self, number: int) -> None:
         self.board.number = number
 
-    def set_board_cards(self, cards: list[int]) -> None:
+    def set_board_cards(self, cards: list[int], author_id: int | None = None) -> None:
         self.board.cards += cards
         self.board.latests = cards
+        self.board.latest_author = author_id
+
+    def has_open_claim(self, player: Player) -> bool:
+        """True when `player` authored the play currently on top of the board.
+
+        That play can still be doubted, so a hand-emptying play does not win
+        until the next player's doubt window has passed."""
+        return bool(self.board.latests) and self.board.latest_author == player.id
+
+    def confirmable_winners(self) -> list[Player]:
+        """Players whose win can be confirmed now: empty-handed with no open claim.
+
+        Ordered by when each hand first became empty. Two players can become
+        confirmable in the same turn (a deferred dump plus a doubter who eats
+        the pile and discards down to zero); when only one confirmation slot
+        remains before the game ends, the earliest dump must take it."""
+        order = self.players.empty_order
+        empty_now = {p.id for p in self.players.playing if p.has_no_cards()}
+        order[:] = [pid for pid in order if pid in empty_now]
+        for p in self.players.playing:
+            if p.has_no_cards() and p.id not in order:
+                order.append(p.id)
+        by_id = {p.id: p for p in self.players.playing}
+        return [by_id[pid] for pid in order if not self.has_open_claim(by_id[pid])]
 
     def set_discarded_cards(self, discarded: list[int]) -> None:
         self.board.availables = [x for x in self.board.availables if x not in discarded]

@@ -394,7 +394,7 @@ class DubitoEnv(gym.Env):
             if gh.is_first_hand():
                 num = output.number or random.choice(gh.board.availables or [1])
                 gh.set_current_number(num)
-            gh.set_board_cards(output.cards)
+            gh.set_board_cards(output.cards, this_player.id)
             self._jokers_in_last_play = bool(gh.jokers_in_latest())
             gh.append_event(CardsPlayedEvent(
                 player_id=this_player.id,
@@ -408,14 +408,21 @@ class DubitoEnv(gym.Env):
             for number in discarded:
                 gh.append_event(DiscardEvent(player_id=p.id, card_number=number))
 
-        if prev is not None and prev.has_no_cards():
-            gh.set_winners(prev)
-            gh.append_event(PlayerWonEvent(player_id=prev.id, position=gh.n_winners_players()))
-            if prev is self._rl_player:
-                return 1.0, True
-            if (self._rl_player not in gh.playing_players() and
-                    self._rl_player not in gh.get_winners()):
-                return -1.0, True
+        # A hand-emptying play must survive the next player's doubt window
+        # before the win is confirmed (mirrors core_game._process_end_of_turn).
+        rl_won = False
+        for p in gh.confirmable_winners():
+            if gh.n_playing_players() <= 2:
+                break       # game over — the final pair lose regardless of card count
+            gh.set_winners(p)
+            gh.append_event(PlayerWonEvent(player_id=p.id, position=gh.n_winners_players()))
+            if p is self._rl_player:
+                rl_won = True
+        if rl_won:
+            return 1.0, True
+        if (self._rl_player not in gh.playing_players() and
+                self._rl_player not in gh.get_winners()):
+            return -1.0, True
 
         if gh.n_winners_players() >= 1 or gh.turn.counter >= MAX_TURNS:
             won = self._rl_player in gh.get_winners()

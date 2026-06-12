@@ -147,7 +147,7 @@ def _handle_play(
         log += f"Player{this_player.id} call number {new_value}\n"
 
     new_cards = output.cards
-    game_handler.set_board_cards(new_cards)
+    game_handler.set_board_cards(new_cards, this_player.id)
     stats_handler.add_player_cards_played(this_player, len(new_cards))
     if not game_handler.is_honest():
         stats_handler.increase_player_bluffs(this_player)
@@ -161,7 +161,15 @@ def _handle_play(
 
 
 def _process_end_of_turn(game_handler: GameHandler) -> str:
-    """Runs discards and winner detection. Returns a log snippet."""
+    """Runs discards and winner detection. Returns a log snippet.
+
+    A player whose hand-emptying play is still on top of the board is not
+    confirmed yet: the next player may doubt it, and a caught bluff puts the
+    whole pile back in their hand. Their win is confirmed at the end of the
+    next turn, once the doubt window has passed. Hands emptied with no open
+    claim on the board (e.g. a four-of-a-kind discard after picking up the
+    pile) win immediately.
+    """
     log = ""
     for p in game_handler.playing_players():
         discarded_cards = p.discard_cards()
@@ -174,7 +182,13 @@ def _process_end_of_turn(game_handler: GameHandler) -> str:
                 ))
         game_handler.set_discarded_cards(discarded_cards)
 
-    for winner in [p for p in game_handler.playing_players() if p.has_no_cards()]:
+    for winner in game_handler.confirmable_winners():
+        if game_handler.n_playing_players() <= 2:
+            # Two players left — the game is over and both lose, regardless of
+            # card count. A second confirmation in the same turn (deferred dump
+            # plus a doubter discarding to zero) must not shrink the final pair.
+            log += f"Player{winner.id} emptied their hand too late — the game is already over.\n"
+            break
         log += f"Player{winner.id} Won!\n"
         game_handler.set_winners(winner)
         log += f"{game_handler.n_playing_players()} Players remaining!\n"
@@ -182,6 +196,10 @@ def _process_end_of_turn(game_handler: GameHandler) -> str:
             player_id=winner.id,
             position=len(game_handler.get_winners()),
         ))
+
+    for p in game_handler.playing_players():
+        if p.has_no_cards() and game_handler.n_playing_players() > 2:
+            log += f"Player{p.id} emptied their hand — wins unless their last play is doubted!\n"
     return log
 
 
@@ -268,6 +286,11 @@ def dubito(
     dataset_handler.add_result(game_handler.get_winners(), game_handler.playing_players())
 
     game_result = {'winners': game_handler.get_winners(), 'losers': game_handler.playing_players()}
-    game_infos = {'logs': logger, 'decisions': dataset_handler.get_dataset(), 'stats': stats_handler}
+    game_infos = {
+        'logs': logger,
+        'decisions': dataset_handler.get_dataset(),
+        'stats': stats_handler,
+        'history': game_handler.history,
+    }
 
     return game_result, game_infos

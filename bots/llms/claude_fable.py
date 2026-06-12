@@ -14,8 +14,8 @@ It is built on five pillars:
 
 2. **Bayesian opponent model.** Per-opponent bluff and doubt propensities are tracked as
    Beta-smoothed rates, so one observation does not swing the estimate the way the raw
-   ratios used by other bots do. Doubt resolutions that follow a player's winning dump
-   are misattributed by the engine to an innocent player — those are filtered out.
+   ratios used by other bots do. A third rate tracks the doubt window: who punishes a
+   pending winner's dump and who waves it through.
 
 3. **Claim feasibility.** When the previous player claims "n cards of X", a hypergeometric
    model over the unseen pool gives P(they could even hold that), jokers included. The
@@ -26,10 +26,11 @@ It is built on five pillars:
    shed/eaten, weighted by hand-size urgency, threat level of the previous player, and
    the dilution of damage among rivals. The best action wins.
 
-5. **Engine-exact endgame.** A hand-emptying play wins immediately and can never be
-   doubted, so a hand of ≤3 cards is a guaranteed win on the bot's next turn. The bot
-   dumps unconditionally at ≤3, values reaching ≤3 via un-doubtable (honest/joker) plays,
-   and doubts aggressively when the previous player is about to reach that state.
+5. **Doubt-window endgame.** A hand-emptying play wins only once it survives the next
+   player's doubt — a caught final bluff puts the whole pile back in the dumper's hand.
+   So the bot dumps unconditionally only when the dump is honest (a doubter eats the
+   pile and the win stands anyway), gates bluff dumps on the per-opponent window model,
+   and treats doubting a 0-card previous player as the last chance to cancel their win.
 """
 
 import math
@@ -48,11 +49,12 @@ from dubito.game_data import (
 # bluffs, ~30% of doubt opportunities are taken.
 BLUFF_PRIOR = (1.0, 1.2)        # (caught, verified-honest)
 DOUBT_PRIOR = (1.0, 2.3)        # (doubts, declined opportunities)
+WINDOW_DOUBT_PRIOR = (2.0, 1.0)  # (window doubts, passes) — most bots punish a 0-card dump
 
 # Context multipliers on the bluff prior (odds space).
 BLUFF_K_MULT = {1: 0.85, 2: 1.15, 3: 1.45}   # more cards claimed → more suspicious
 BLUFF_OPENER_MULT = 0.70                      # opener picked their own number
-WINNER_DUMP_BLUFF = 0.80                      # prior that a winning dump was a bluff
+WINNER_DUMP_BLUFF = 0.80                      # prior that a pending winning dump is a bluff
 
 # How much the next player's doubt rate reacts to my play size.
 DOUBT_K_REACT = {1: 0.85, 2: 1.10, 3: 1.45}
@@ -63,9 +65,11 @@ TEMPO_LOSS = 0.4          # wrong doubt → the player after me opens fresh
 REPLAY_GIFT = 0.8         # my caught bluff hands the next player a free opener
 REPUTATION_COST = 0.25    # each caught bluff makes adaptive opponents doubt me more
 JOKER_SPEND_COST = 0.7    # a joker kept is insurance for a forced-bluff emergency
-REACH3_BONUS = 2.8        # play leaves me at ≤3 cards → guaranteed win next turn
-REACH3_CONTESTED = 1.6    # ...but a rival is also at ≤3 and acts before me
+REACH3_BONUS = 2.4        # play leaves me at ≤3 cards → dump (usually a win) next turn
+REACH3_CONTESTED = 1.3    # ...but a rival is also at ≤3 and acts before me
 REACH4_BONUS = 0.6
+DUMP_WIN_VALUE = 6.0      # confirming a win right now, in card units
+STOP_WIN_BONUS = 2.5      # extra gain when a correct doubt cancels a pending win
 
 
 def _beta_rate(hits: int, misses: int, prior: tuple[float, float]) -> float:
@@ -106,7 +110,10 @@ class ClaudeFableBot(BotBase):
         self._idx = 0                  # history events already ingested
         self._bluff: dict[int, list[int]] = {}   # pid → [caught, verified honest]
         self._doubtc: dict[int, list[int]] = {}  # pid → [doubts, declined opportunities]
+        self._window: dict[int, list[int]] = {}  # pid → [window doubts, window passes]
         self._known: dict[int, Counter] = {}     # pid → cards they certainly hold
+        self._hand_n: dict[int, int] = {}        # pid → exact reconstructed hand size
+        self._pending_pid = None       # player whose winning dump awaits the next verdict
         self._gone = Counter()         # card number → copies permanently discarded
         self._my_pile = Counter()      # my own cards currently sitting in the pile
         self._pile = 0                 # reconstructed board size
@@ -122,11 +129,20 @@ class ClaudeFableBot(BotBase):
             if isinstance(e, GameStartEvent):
                 self._reset_tracking()
                 self._idx = 0
+                self._hand_n = dict(e.initial_card_counts)
             elif isinstance(e, CardsPlayedEvent):
+                if self._pending_pid is not None and e.player_id != self._pending_pid:
+                    # They played over a pending winner's dump instead of doubting.
+                    self._window.setdefault(e.player_id, [0, 0])[1] += 1
+                self._pending_pid = None
                 if self._pile > 0 and e.player_id != self.id:
                     self._doubtc.setdefault(e.player_id, [0, 0])[1] += 1
                 self._pile += e.n_cards
                 self._last_play = e
+                if e.player_id in self._hand_n:
+                    self._hand_n[e.player_id] -= e.n_cards
+                    if self._hand_n[e.player_id] <= 0:
+                        self._pending_pid = e.player_id   # dump: doubt window opens
                 if e.player_id != self.id:
                     # They played n face-down cards: any certainty about their hand
                     # decays by n per number (the played cards may have been those).
@@ -137,18 +153,20 @@ class ClaudeFableBot(BotBase):
                             if k[num] <= 0:
                                 del k[num]
             elif isinstance(e, DoubtResolvedEvent):
+                if self._pending_pid is not None:
+                    self._window.setdefault(e.doubter_id, [0, 0])[0] += 1
+                    self._pending_pid = None
                 d = self._doubtc.setdefault(e.doubter_id, [0, 0])
                 d[0] += 1
-                # After a winning dump the engine attributes the doubt to an innocent
-                # player — only count honesty stats when the target really played last.
-                if self._last_play is not None and self._last_play.player_id == e.target_id:
-                    b = self._bluff.setdefault(e.target_id, [0, 0])
-                    b[0 if e.correct else 1] += 1
-                    if e.correct and e.target_id == self.id:
-                        self._my_caught += 1
+                b = self._bluff.setdefault(e.target_id, [0, 0])
+                b[0 if e.correct else 1] += 1
+                if e.correct and e.target_id == self.id:
+                    self._my_caught += 1
                 loser = e.target_id if e.correct else e.doubter_id
                 if loser != self.id:
                     self._known.setdefault(loser, Counter()).update(e.board_cards)
+                if loser in self._hand_n:
+                    self._hand_n[loser] += len(e.board_cards)
                 self._gone[0] += e.jokers_discarded
                 self._my_pile.clear()
                 self._pile = 0
@@ -157,9 +175,19 @@ class ClaudeFableBot(BotBase):
                 self._gone[e.card_number] = 4
                 for k in self._known.values():
                     k.pop(e.card_number, None)
+                if e.player_id in self._hand_n:
+                    self._hand_n[e.player_id] -= 4
+                    if (self._hand_n[e.player_id] <= 0
+                            and self._last_play is not None
+                            and self._last_play.player_id == e.player_id):
+                        # Played, then discarded to zero — their play is still doubtable.
+                        self._pending_pid = e.player_id
             elif isinstance(e, PlayerWonEvent):
-                # Keep their known cards: a winning dump may still be (windfall-)doubted.
-                pass
+                # Win confirmed: they are out; their dumped cards stay in the pile.
+                self._known.pop(e.player_id, None)
+                self._hand_n.pop(e.player_id, None)
+                if self._pending_pid == e.player_id:
+                    self._pending_pid = None
         self._idx = len(history)
 
     # ── Opponent model ─────────────────────────────────────────────────────────
@@ -171,6 +199,11 @@ class ClaudeFableBot(BotBase):
     def _doubt_rate(self, pid: int) -> float:
         doubts, declined = self._doubtc.get(pid, (0, 0))
         return _beta_rate(doubts, declined, DOUBT_PRIOR)
+
+    def _window_doubt_rate(self, pid: int) -> float:
+        """P(pid doubts a pending winner's dump when given the chance)."""
+        doubts, passes = self._window.get(pid, (0, 0))
+        return _beta_rate(doubts, passes, WINDOW_DOUBT_PRIOR)
 
     def _claim_feasibility(self, p: TurnData, target_id: int, target_hand_now: int,
                            number: int, n_claimed: int) -> float:
@@ -203,25 +236,18 @@ class ClaudeFableBot(BotBase):
 
     def _p_bluff(self, p: TurnData) -> float:
         """P(the play on the table is a bluff), Bayes-fusing prior tendency and feasibility."""
-        play = self._last_play
-        attributed = play is not None and play.player_id == p.prev_player_id
-        if attributed:
-            prior = self._bluff_rate(p.prev_player_id) * BLUFF_K_MULT.get(p.n_cards_played, 1.0)
-            if p.n_cards_played == p.board_cards:      # they opened and chose the number
-                prior *= BLUFF_OPENER_MULT
-            hand_now = p.player_card_counts.get(p.prev_player_id, 1)
-            target = p.prev_player_id
-        else:
-            # The last play was a winning dump (its player already left the game). The
-            # engine resolves a doubt here against those cards, but charges an innocent
-            # player — for us, only P(that dump was a bluff) matters.
+        hand_now = p.player_card_counts.get(p.prev_player_id, 0)
+        if hand_now == 0:
+            # A hand-emptying dump awaiting confirmation: its composition was forced
+            # (every card they held), so a flat prior beats behavioural bluff rates.
             prior = WINNER_DUMP_BLUFF
-            hand_now = 0
-            target = play.player_id if play is not None else p.prev_player_id
+        else:
+            prior = self._bluff_rate(p.prev_player_id) * BLUFF_K_MULT.get(p.n_cards_played, 1.0)
+        if p.n_cards_played == p.board_cards:      # they opened and chose the number
+            prior *= BLUFF_OPENER_MULT
         prior = min(max(prior, 0.02), 0.98)
         feasible = self._claim_feasibility(
-            p, target, hand_now, p.current_number,
-            p.n_cards_played if play is None else play.n_cards,
+            p, p.prev_player_id, hand_now, p.current_number, p.n_cards_played,
         )
         post = prior / (prior + (1.0 - prior) * feasible)
         return min(max(post, 0.01), 0.999)
@@ -240,7 +266,7 @@ class ClaudeFableBot(BotBase):
 
     def _threat_mult(self, count: int) -> float:
         if count <= 3:
-            return 3.0      # they dump-win on their next turn unless stopped now
+            return 3.0      # at 0 they win unless this doubt lands; at ≤3 they dump next
         if count <= 5:
             return 1.8
         if count <= 8:
@@ -263,6 +289,8 @@ class ClaudeFableBot(BotBase):
         opp_relief = 1.0 / max(2, p.n_players - 1)
         prev_count = p.player_card_counts.get(p.prev_player_id, 8)
         gain = pile * opp_relief * self._threat_mult(prev_count) + REPLAY_BONUS
+        if prev_count == 0:
+            gain += STOP_WIN_BONUS   # a correct doubt is the only way to cancel their win
         loss = pile * self._me_eat_factor() + TEMPO_LOSS
         return p_b * gain - (1.0 - p_b) * loss
 
@@ -302,12 +330,32 @@ class ClaudeFableBot(BotBase):
         lose_part = (p.board_cards + k) * self._me_eat_factor() + REPLAY_GIFT + REPUTATION_COST
         return (1.0 - d_k) * win_part - d_k * lose_part
 
+    # ── Endgame: hand-emptying dumps ───────────────────────────────────────────
+
+    def _dump_is_honest(self, p: TurnData, first_turn: bool) -> bool:
+        """A dump nobody can catch: every card is the declared number or a joker.
+        On a first turn the declaration is ours, so any single-number hand works."""
+        if first_turn:
+            real = {c for c in self.cards.hand if c != 0}
+            return len(real) <= 1
+        return all(c == 0 or c == p.current_number for c in self.cards.hand)
+
+    def _bluff_dump_ev(self, p: TurnData) -> float:
+        """EV of bluff-dumping the whole hand: a win unless the next player doubts —
+        and a caught dump means eating the entire pile plus the hand just shed."""
+        d_w = min(0.97, max(0.05, self._window_doubt_rate(p.next_player_id)
+                            + self._my_caught * 0.07))
+        k = len(self.cards)
+        caught_cost = (p.board_cards + k) * self._me_eat_factor() + REPLAY_GIFT + REPUTATION_COST
+        return (1.0 - d_w) * DUMP_WIN_VALUE - d_w * caught_cost
+
     def _emit(self, p: TurnData, cards: list[int], number: int | None) -> TurnOutput:
         self._my_pile.update(cards)
         return TurnOutput(doubt=False, number=number, cards=cards)
 
     def _dump_all(self, p: TurnData, first_turn: bool) -> TurnOutput:
-        """Hand-emptying play: an immediate, un-doubtable win."""
+        """Hand-emptying play. Honest dumps cannot be canceled; bluff dumps must
+        first pass the EV gate in the turn entry points."""
         cards = self.cards.pick_idx(list(range(len(self.cards.hand))))
         number = None
         if first_turn:
@@ -319,8 +367,9 @@ class ClaudeFableBot(BotBase):
 
     def play_first_turn(self, p: TurnData) -> TurnOutput:
         self._ingest(p.history)
-        if len(self.cards) <= 3:
-            return self._dump_all(p, first_turn=True)
+        dumpable = len(self.cards) <= 3
+        if dumpable and self._dump_is_honest(p, first_turn=True):
+            return self._dump_all(p, first_turn=True)   # un-cancelable win
 
         counts = self.cards.count_all()
         candidates = [(num, c) for num, c in counts.items() if num != 0]
@@ -343,6 +392,11 @@ class ClaudeFableBot(BotBase):
         ev_bluff = self._play_ev(p, k_bluff, honest_proof=False, spends_joker=False) \
             if k_honest < k_bluff else -1e9
 
+        # Bluff dump: empties the hand but must survive the doubt window.
+        ev_dump = self._bluff_dump_ev(p) if dumpable else -1e9
+
+        if ev_dump > ev_honest and ev_dump > ev_bluff:
+            return self._dump_all(p, first_turn=True)
         if ev_bluff > ev_honest:
             idx = self._trash_indexes(k_bluff, protect=best)
             return self._emit(p, self.cards.pick_idx(idx), number=best)
@@ -353,10 +407,15 @@ class ClaudeFableBot(BotBase):
 
     def play_regular_turn(self, p: TurnData) -> TurnOutput:
         self._ingest(p.history)
-        if len(self.cards) <= 3:
-            return self._dump_all(p, first_turn=False)
+        dumpable = len(self.cards) <= 3
+        if dumpable and self._dump_is_honest(p, first_turn=False):
+            return self._dump_all(p, first_turn=False)   # un-cancelable win
 
         best_ev, best_action = self._doubt_ev(p), ('doubt', 0, False)
+        if dumpable:
+            ev = self._bluff_dump_ev(p)
+            if ev > best_ev:
+                best_ev, best_action = ev, ('dump', 0, False)
 
         c = self.cards.count(p.current_number)
         n_jokers = self.cards.count(0)
@@ -383,6 +442,8 @@ class ClaudeFableBot(BotBase):
         kind, k, joker = best_action
         if kind == 'doubt':
             return TurnOutput(doubt=True, number=None, cards=None)
+        if kind == 'dump':
+            return self._dump_all(p, first_turn=False)
         if kind == 'honest':
             cards = self.cards.pick(p.current_number, k)
             if joker:

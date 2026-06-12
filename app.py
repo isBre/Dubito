@@ -190,7 +190,7 @@ class GameSession:
                     pool = gh.board.availables or output.cards
                     val = random.choice(pool)
                 gh.set_current_number(val)
-            gh.set_board_cards(output.cards)
+            gh.set_board_cards(output.cards, this_player.id)
             gh.append_event(CardsPlayedEvent(
                 player_id=this_player.id,
                 declared_number=gh.get_current_number(),
@@ -212,8 +212,13 @@ class GameSession:
                         **self.snap(),
                     })
 
-        # Win check
-        for winner in [p for p in gh.playing_players() if p.has_no_cards()]:
+        # Win check — a hand-emptying play must first survive the next player's
+        # doubt window (a caught bluff puts the pile back in the dumper's hand).
+        # Confirmations stop once two players remain: the game is over and the
+        # final pair lose regardless of card count.
+        for winner in gh.confirmable_winners():
+            if gh.n_playing_players() <= 2:
+                break
             gh.set_winners(winner)
             gh.append_event(PlayerWonEvent(player_id=winner.id, position=gh.n_winners_players()))
             resolve_events.append({
@@ -223,6 +228,16 @@ class GameSession:
                 "target_id":  winner.id,
                 **self.snap(),
             })
+        if gh.n_playing_players() > 2:
+            for p in gh.playing_players():
+                if p.has_no_cards():
+                    resolve_events.append({
+                        "msg":        f"{self._lbl(p)} has no cards left — wins unless this play is doubted!",
+                        "event_type": "pending_win",
+                        "actor_id":   p.id,
+                        "target_id":  p.id,
+                        **self.snap(),
+                    })
         if gh.n_playing_players() == 2:
             losers = gh.playing_players()
             resolve_events.append({

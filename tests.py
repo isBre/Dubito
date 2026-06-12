@@ -7,7 +7,7 @@ from dubito.core_game import (
     has_n_equal_elements,
     _resolve_doubt, _handle_play, _process_end_of_turn,
 )
-from dubito.game_data import DoubtResolvedEvent, CardsPlayedEvent, DiscardEvent, PlayerWonEvent
+from dubito.game_data import DoubtResolvedEvent, CardsPlayedEvent, DiscardEvent, PlayerWonEvent, TurnOutput
 from bots.manual.honest_bot import HonestBot
 from bots.manual.trusting_bot import TrustingBot
 from bots.manual.always_doubt_bot import AlwaysDoubtBot
@@ -942,6 +942,232 @@ class TestProcessEndOfTurn(unittest.TestCase):
         self.assertEqual(doubter.cards.hand, [5, 5])
         self.assertNotIn(7, gh.board.availables)
         self.assertNotIn(9, gh.board.availables)
+
+
+# ---------------------------------------------------------------------------
+# Open claim — who authored the play on top of the board
+# ---------------------------------------------------------------------------
+
+class TestOpenClaim(unittest.TestCase):
+
+    def test_no_claim_when_board_empty(self):
+        gh, players = _make_game()
+        self.assertFalse(gh.has_open_claim(players[0]))
+
+    def test_claim_tracks_latest_author(self):
+        gh, players = _make_game()
+        gh.set_board_cards([5, 5], author_id=players[1].id)
+        self.assertTrue(gh.has_open_claim(players[1]))
+        self.assertFalse(gh.has_open_claim(players[0]))
+
+    def test_claim_moves_to_newest_play(self):
+        gh, players = _make_game()
+        gh.set_board_cards([5, 5], author_id=players[1].id)
+        gh.set_board_cards([5], author_id=players[2].id)
+        self.assertFalse(gh.has_open_claim(players[1]))
+        self.assertTrue(gh.has_open_claim(players[2]))
+
+    def test_claim_cleared_on_board_reset(self):
+        gh, players = _make_game()
+        gh.set_board_cards([5], author_id=players[1].id)
+        gh.reset_board()
+        self.assertFalse(gh.has_open_claim(players[1]))
+
+    def test_no_claim_when_author_unknown(self):
+        # set_board_cards without author (legacy callers) → wins stay immediate
+        gh, players = _make_game()
+        gh.set_board_cards([5])
+        self.assertFalse(gh.has_open_claim(players[1]))
+
+
+# ---------------------------------------------------------------------------
+# Doubt window on a hand-emptying play ("they win unless doubted")
+# ---------------------------------------------------------------------------
+
+class TestDumpWinDoubtWindow(unittest.TestCase):
+    """A player who empties their hand by playing wins only once that final
+    play survives the next player's doubt window."""
+
+    def _pending_setup(self, dump_cards, declared=7):
+        """3 players; players[0] (empty-handed) dumps `dump_cards` onto a pile
+        of one earlier card. Returns state right after their end-of-turn."""
+        players = [TrustingBot(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        stats = StatsHandler(all_players=players)
+        for p in players[1:]:
+            p.add_cards([10, 11, 12])           # background hands
+        gh.next_turn()                           # prev=players[2], this=players[0]
+        dumper = gh.players.this
+        gh.set_current_number(declared)
+        gh.set_board_cards([declared], author_id=players[2].id)   # earlier pile card
+        _handle_play(gh, dumper,
+                     TurnOutput(doubt=False, number=None, cards=list(dump_cards)), stats)
+        log = _process_end_of_turn(gh)
+        return gh, stats, players, dumper, log
+
+    def test_dump_win_is_deferred(self):
+        gh, stats, players, dumper, log = self._pending_setup([7, 3])
+        self.assertNotIn(dumper, gh.get_winners())
+        self.assertIn(dumper, gh.playing_players())
+        self.assertIn('wins unless', log)
+        self.assertFalse(any(isinstance(e, PlayerWonEvent) for e in gh.history))
+
+    def test_win_confirmed_when_next_player_plays_over(self):
+        gh, stats, players, dumper, _ = self._pending_setup([7, 3])
+        prev, this = gh.next_turn()
+        self.assertIs(prev, dumper)              # the dumper is doubtable for one turn
+        _handle_play(gh, this, TurnOutput(doubt=False, number=None, cards=[10]), stats)
+        _process_end_of_turn(gh)
+        self.assertIn(dumper, gh.get_winners())
+        self.assertNotIn(dumper, gh.playing_players())
+        won = [e for e in gh.history if isinstance(e, PlayerWonEvent)]
+        self.assertEqual([(e.player_id, e.position) for e in won], [(dumper.id, 1)])
+
+    def test_bluffed_dump_doubt_cancels_win(self):
+        gh, stats, players, dumper, _ = self._pending_setup([7, 3])   # 3 ≠ 7 → bluff
+        prev, this = gh.next_turn()
+        replay, _ = _resolve_doubt(gh, this, prev, stats)
+        self.assertTrue(replay)
+        self.assertEqual(len(dumper.cards), 3)   # picked the whole pile back up
+        self.assertEqual(gh.get_board(), [])
+        _process_end_of_turn(gh)
+        self.assertNotIn(dumper, gh.get_winners())
+        self.assertIn(dumper, gh.playing_players())
+        event = next(e for e in gh.history if isinstance(e, DoubtResolvedEvent))
+        self.assertEqual(event.target_id, dumper.id)
+        self.assertTrue(event.correct)
+        self.assertEqual(stats.data[dumper.id]['dishonest_times'], 1)
+
+    def test_honest_dump_doubt_confirms_win(self):
+        gh, stats, players, dumper, _ = self._pending_setup([7, 7])   # honest dump
+        prev, this = gh.next_turn()
+        cards_before = len(this.cards)
+        replay, _ = _resolve_doubt(gh, this, prev, stats)
+        self.assertFalse(replay)
+        self.assertEqual(len(this.cards), cards_before + 3)   # doubter eats the pile
+        _process_end_of_turn(gh)
+        self.assertIn(dumper, gh.get_winners())
+        self.assertEqual(stats.data[dumper.id]['honest_times'], 1)
+
+    def test_innocent_pre_dumper_player_is_never_charged(self):
+        # Regression: the doubt used to resolve against the player before the
+        # winner — eating the pile and taking the dishonesty mark for a bluff
+        # they never made.
+        gh, stats, players, dumper, _ = self._pending_setup([7, 3])
+        innocent = players[2]
+        cards_before = len(innocent.cards)
+        prev, this = gh.next_turn()
+        _resolve_doubt(gh, this, prev, stats)
+        self.assertEqual(len(innocent.cards), cards_before)
+        self.assertEqual(stats.data[innocent.id]['dishonest_times'], 0)
+        self.assertEqual(stats.data[innocent.id]['honest_times'], 0)
+
+    def test_discard_to_zero_with_no_claim_wins_immediately(self):
+        # A hand emptied with no open claim on the board (e.g. a four-of-a-kind
+        # discard right after picking up the pile) confirms instantly.
+        players = [TrustingBot(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        for p in players[1:]:
+            p.add_cards([10, 11])
+        gh.next_turn()
+        winner = gh.players.this
+        winner.add_cards([9, 9, 9, 9])
+        _process_end_of_turn(gh)
+        self.assertIn(winner, gh.get_winners())
+
+    def test_play_then_discard_to_zero_is_still_pending(self):
+        # The player plays their last loose cards and the discard phase empties
+        # the rest — their play is still the open claim, so the win is deferred.
+        players = [TrustingBot(i) for i in range(3)]
+        gh = GameHandler(all_players=players, deck_size=14)
+        stats = StatsHandler(all_players=players)
+        for p in players[1:]:
+            p.add_cards([10, 11, 12])
+        gh.next_turn()
+        dumper = gh.players.this
+        dumper.add_cards([9, 9, 9, 9])
+        gh.set_current_number(7)
+        gh.set_board_cards([7], author_id=players[2].id)
+        _handle_play(gh, dumper, TurnOutput(doubt=False, number=None, cards=[7, 3]), stats)
+        log = _process_end_of_turn(gh)
+        self.assertTrue(dumper.has_no_cards())
+        self.assertNotIn(dumper, gh.get_winners())
+        self.assertIn('wins unless', log)
+
+
+# ---------------------------------------------------------------------------
+# Simultaneous confirmations must not shrink the final losing pair
+# ---------------------------------------------------------------------------
+
+class TestSimultaneousWinCollapse(unittest.TestCase):
+    """Two players can become confirmable in the same end-of-turn: a deferred
+    dump whose claim just cleared, plus the doubter who ate the pile and
+    discarded down to zero. The game still ends with exactly two losers — the
+    earliest dump takes the last confirmation slot."""
+
+    def _collapse_scenario(self):
+        players = [TrustingBot(i) for i in range(3)]
+        a, b, c = players
+        gh = GameHandler(all_players=players, deck_size=14)
+        stats = StatsHandler(all_players=players)
+        b.add_cards([5])
+        c.add_cards([10, 11])
+        # Last turn: A dumped three honest 5s and emptied their hand.
+        gh.next_turn()
+        gh.set_current_number(5)
+        gh.set_board_cards([5, 5, 5], author_id=a.id)
+        _process_end_of_turn(gh)
+        self.assertNotIn(a, gh.get_winners())            # deferred behind the claim
+        # This turn: B doubts, eats the honest pile, and the four 5s discard
+        # B's hand to zero while the reset board clears A's claim.
+        prev, this = gh.next_turn()
+        _resolve_doubt(gh, this, prev, stats)
+        _process_end_of_turn(gh)
+        return gh, a, b, c
+
+    def test_exactly_two_losers_survive(self):
+        gh, a, b, c = self._collapse_scenario()
+        self.assertEqual(gh.get_winners(), [a])
+        self.assertEqual(gh.playing_players(), [b, c])
+
+    def test_earliest_empty_hand_takes_the_last_slot(self):
+        gh, a, b, c = self._collapse_scenario()
+        won = [e for e in gh.history if isinstance(e, PlayerWonEvent)]
+        self.assertEqual([(e.player_id, e.position) for e in won], [(a.id, 1)])
+        self.assertTrue(b.has_no_cards())                # emptied, but too late
+
+    def test_full_games_never_drop_below_two_losers(self):
+        import random as _random
+        import bots as _bots  # noqa: F401 — populates BotBase.registry
+        from bots.base import BotBase
+        _random.seed(42)
+        names = list(BotBase.registry)
+        for g in range(250):
+            classes = _random.sample(names, k=_random.randint(3, min(8, len(names))))
+            players = [BotBase.registry[c](i + 1) for i, c in enumerate(classes)]
+            result, _ = dubito(players)
+            self.assertEqual(len(result['losers']), 2, f"game {g}")
+
+
+# ---------------------------------------------------------------------------
+# Attribution invariant — a doubt always resolves against the last play's author
+# ---------------------------------------------------------------------------
+
+class TestDoubtAttributionInvariant(unittest.TestCase):
+
+    def test_doubt_target_is_always_last_play_author(self):
+        # Regression for the orphaned winning dump: with the winner removed
+        # immediately, doubts resolved against an innocent re-anchored player.
+        for _ in range(150):
+            _, infos = dubito(
+                all_players=[AlwaysDoubtBot(1), RandomBot(2), AlwaysDoubtBot(3), RandomBot(4)],
+            )
+            last_author = None
+            for e in infos['history']:
+                if isinstance(e, CardsPlayedEvent):
+                    last_author = e.player_id
+                elif isinstance(e, DoubtResolvedEvent):
+                    self.assertEqual(e.target_id, last_author)
 
 
 if __name__ == '__main__':

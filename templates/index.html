@@ -1174,6 +1174,7 @@ function _highlightActor(frame) {
     joker:       { pid: frame.target_id, cls: 'joker',   text: 'JOKER!'   },
     discard:     { pid: frame.actor_id,  cls: 'discard', text: 'DISCARDS' },
     win:         { pid: frame.actor_id,  cls: 'win',     text: 'WINS!'    },
+    pending_win: { pid: frame.actor_id,  cls: 'win',     text: 'WINS?'    },
   };
 
   const cfg = CHIP[frame.event_type];
